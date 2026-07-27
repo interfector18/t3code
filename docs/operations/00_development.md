@@ -80,6 +80,12 @@ vp run dist:desktop:win
 
 Run `vp run dist:desktop:artifact --help` for `--arch`, `--signed`, and `--keep-stage`.
 
+On Linux x64, `vp run install:desktop:local` builds a clean committed revision in a temporary
+detached worktree and installs a versioned AppImage snapshot without release update feeds.
+It preserves the published app version for server compatibility and embeds the commit hash.
+`~/.local/bin/t3code` selects the active snapshot under `~/.local/opt/t3code/snapshots`;
+snapshots use production state in `~/.t3/userdata`, independently of development state.
+
 ### Linux AppImage prerequisites
 
 Build on Linux (the browser-secret helper links against `libsecret`). Install Rust stable (`rustup`), C/C++ build tools, `libsecret` dev headers, `pkg-config`, ImageMagick, and Electron runtime libs (`gtk3`, `nss`, `alsa`, `gbm`):
