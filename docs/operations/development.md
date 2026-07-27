@@ -139,6 +139,14 @@ vp run dist:desktop:linux
 vp run dist:desktop:win
 ```
 
+On Linux x64, `vp run install:desktop:local` builds the current committed revision in a temporary
+detached worktree and installs it as a versioned AppImage snapshot. The command requires a clean
+working tree, keeps the published app version for remote-server compatibility, omits release
+update-feed configuration, and identifies the snapshot by its embedded commit hash. The active
+snapshot is available at `~/.local/bin/t3code`; previous snapshots remain under
+`~/.local/opt/t3code/snapshots`. Installed snapshots share production state under
+`~/.t3/userdata` while remaining independent of the checkout's development state.
+
 DMGs default to the host architecture. Use `--arch` to choose another target and `--keep-stage`
 to retain packaging files for inspection. Run `vp run dist:desktop:artifact --help` for other
 options.
