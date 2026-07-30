@@ -3,6 +3,7 @@ import {
   AuthStandardClientScopes,
   type AuthEnvironmentScope,
   type AuthPairingLink,
+  type AuthSessionExpiration,
   type ServerAuthBootstrapMethod,
 } from "@t3tools/contracts";
 import {
@@ -30,6 +31,7 @@ export interface BootstrapGrant {
   readonly subject: string;
   readonly label?: string;
   readonly proofKeyThumbprint?: string;
+  readonly sessionExpiration: AuthSessionExpiration;
   readonly expiresAt: DateTime.DateTime;
 }
 
@@ -192,6 +194,7 @@ export interface IssuedBootstrapCredential {
   readonly credential: string;
   readonly label?: string;
   readonly proofKeyThumbprint?: string;
+  readonly sessionExpiration: AuthSessionExpiration;
   readonly expiresAt: DateTime.Utc;
 }
 
@@ -219,6 +222,7 @@ export class PairingGrantStore extends Context.Service<
        * which gets the long dev TTL when a dev URL is configured.
        */
       readonly purpose?: "startup";
+      readonly sessionExpiration?: AuthSessionExpiration;
     }) => Effect.Effect<IssuedBootstrapCredential, BootstrapCredentialInternalError>;
     readonly listActive: () => Effect.Effect<
       ReadonlyArray<AuthPairingLink>,
@@ -338,6 +342,7 @@ export const make = Effect.gen(function* () {
       method: "desktop-bootstrap",
       scopes: AuthAdministrativeScopes,
       subject: "desktop-bootstrap",
+      sessionExpiration: "default",
       expiresAt: DateTime.add(now, {
         milliseconds: Duration.toMillis(DESKTOP_BOOTSTRAP_TTL_HOURS),
       }),
@@ -366,6 +371,7 @@ export const make = Effect.gen(function* () {
               label: row.label,
               createdAt: row.createdAt,
               expiresAt: row.expiresAt,
+              sessionExpiration: row.sessionExpiration,
             } satisfies AuthPairingLink)
           : ({
               id: row.id,
@@ -373,6 +379,7 @@ export const make = Effect.gen(function* () {
               subject: row.subject,
               createdAt: row.createdAt,
               expiresAt: row.expiresAt,
+              sessionExpiration: row.sessionExpiration,
             } satisfies AuthPairingLink),
       );
     },
@@ -413,11 +420,13 @@ export const make = Effect.gen(function* () {
       (isDevStartupToken ? DEV_STARTUP_TTL_HOURS : DEFAULT_ONE_TIME_TOKEN_TTL_MINUTES);
     const now = yield* DateTime.now;
     const expiresAt = DateTime.add(now, { milliseconds: Duration.toMillis(ttl) });
+    const sessionExpiration = input?.sessionExpiration ?? "default";
     const issued: IssuedBootstrapCredential = {
       id,
       credential,
       ...(input?.label ? { label: input.label } : {}),
       ...(input?.proofKeyThumbprint ? { proofKeyThumbprint: input.proofKeyThumbprint } : {}),
+      sessionExpiration,
       expiresAt,
     };
     const subject = input?.subject ?? "one-time-token";
@@ -430,6 +439,7 @@ export const make = Effect.gen(function* () {
         subject,
         label: input?.label ?? null,
         proofKeyThumbprint: input?.proofKeyThumbprint ?? null,
+        sessionExpiration,
         createdAt: now,
         expiresAt: expiresAt,
       })
@@ -451,6 +461,7 @@ export const make = Effect.gen(function* () {
       ...(input?.label ? { label: input.label } : {}),
       createdAt: now,
       expiresAt,
+      sessionExpiration,
     });
     return issued;
   });
@@ -463,6 +474,7 @@ export const make = Effect.gen(function* () {
           method: "desktop-bootstrap",
           scopes: AuthAdministrativeScopes,
           subject: "desktop-bootstrap",
+          sessionExpiration: "default",
           expiresAt: DateTime.add(now, {
             milliseconds: DESKTOP_BOOTSTRAP_TOKEN_WINDOW_MS,
           }),
@@ -545,6 +557,7 @@ export const make = Effect.gen(function* () {
                   ? { proofKeyThumbprint: grant.proofKeyThumbprint }
                   : {}),
                 expiresAt: grant.expiresAt,
+                sessionExpiration: grant.sessionExpiration,
               } satisfies BootstrapGrant,
             },
             next,
@@ -585,6 +598,7 @@ export const make = Effect.gen(function* () {
             ? { proofKeyThumbprint: consumed.value.proofKeyThumbprint }
             : {}),
           expiresAt: consumed.value.expiresAt,
+          sessionExpiration: consumed.value.sessionExpiration,
         } satisfies BootstrapGrant;
       }
 
