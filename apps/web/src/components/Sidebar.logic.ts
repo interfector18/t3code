@@ -409,6 +409,16 @@ export function applySidebarThreadDrop<
   };
 }
 
+export function resolveSidebarVcsStatusMode(
+  isActive: boolean,
+  statusDemanded: boolean,
+  canLoad: boolean,
+): "live" | "lookup" | "idle" {
+  if (!canLoad) return "idle";
+  if (isActive) return "live";
+  return statusDemanded ? "lookup" : "idle";
+}
+
 type SidebarProject = {
   id: string;
   title: string;
