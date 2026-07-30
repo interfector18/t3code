@@ -214,12 +214,12 @@ const appendSessionCookie = (
   request: HttpServerRequest.HttpServerRequest,
   cookieName: string,
   token: string,
-  expiresAt: DateTime.DateTime,
+  expiresAt: DateTime.DateTime | null,
 ) =>
   Effect.fromResult(
     Cookies.set(Cookies.empty, cookieName, token, {
       ...sessionCookieOptions(request),
-      expires: DateTime.toDate(expiresAt),
+      ...(expiresAt === null ? {} : { expires: DateTime.toDate(expiresAt) }),
     }),
   ).pipe(
     Effect.catch(() => failEnvironmentInternal("browser_session_cookie_failed")),
@@ -337,7 +337,9 @@ export const layer = HttpApiBuilder.group(
             const selectedCookie = yield* Effect.fromResult(
               Cookies.set(Cookies.empty, cookieName, result.sessionToken, {
                 ...sessionCookieOptions(request),
-                expires: DateTime.toDate(result.response.expiresAt),
+                ...(result.response.expiresAt === null
+                  ? {}
+                  : { expires: DateTime.toDate(result.response.expiresAt) }),
               }),
             ).pipe(Effect.catch(() => failEnvironmentInternal("browser_session_cookie_failed")));
             const sessionCookies = result.expireNormalCookie
