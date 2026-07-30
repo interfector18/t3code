@@ -65,6 +65,7 @@ function layerPairingHttp(
     readonly grantScopes?: ReadonlyArray<AuthEnvironmentScope>;
     readonly exchangeGate?: { readonly reached: () => void; readonly release: Promise<void> };
     readonly accessTokenRenewal?: boolean;
+    readonly nonExpiring?: boolean;
   },
 ) {
   const grantScopes = options?.grantScopes ?? AuthStandardClientScopes;
@@ -137,7 +138,7 @@ function layerPairingHttp(
         access_token: dpop ? "dpop-token" : "bearer-token",
         issued_token_type: "urn:ietf:params:oauth:token-type:access_token",
         token_type: dpop ? "DPoP" : "Bearer",
-        expires_in: 3600,
+        ...(options?.nonExpiring ? {} : { expires_in: 3600 }),
         scope: sessionScopes.join(" "),
       });
       const gate = options?.exchangeGate;
@@ -605,12 +606,34 @@ describe("connection onboarding", () => {
     { name: "a host that renews, with a device key", renews: true, signer: true, dpop: true },
     { name: "a host that renews, without a device key", renews: true, signer: false, dpop: false },
     { name: "an older host, with a device key", renews: false, signer: true, dpop: false },
-  ])("pairs with $name as DPoP: $dpop", ({ renews, signer, dpop }) =>
+    {
+      name: "a non-expiring bearer host",
+      renews: false,
+      signer: false,
+      dpop: false,
+      nonExpiring: true,
+    },
+    {
+      name: "a non-expiring DPoP response",
+      renews: true,
+      signer: true,
+      dpop: true,
+      nonExpiring: true,
+    },
+  ])("pairs with $name as DPoP: $dpop", ({ renews, signer, dpop, nonExpiring = false }) =>
     Effect.gen(function* () {
-      const registration = yield* preparePairingRegistration({
+      const prepare = preparePairingRegistration({
         host: "remote.example.test",
         pairingCode: "pairing-token",
       });
+      if (dpop && nonExpiring) {
+        expect(yield* prepare.pipe(Effect.flip)).toMatchObject({
+          reason: "configuration",
+          detail: "The environment returned a non-expiring DPoP token, which is not supported.",
+        });
+        return;
+      }
+      const registration = yield* prepare;
       expect(registration.credential).toMatchObject(
         dpop
           ? { _tag: "DpopConnectionCredential", accessToken: "dpop-token" }
@@ -619,7 +642,7 @@ describe("connection onboarding", () => {
     }).pipe(
       Effect.provide(
         Layer.merge(
-          layerPairingOnboarding({ accessTokenRenewal: renews }),
+          layerPairingOnboarding({ accessTokenRenewal: renews, nonExpiring }),
           signer
             ? Layer.succeed(
                 ManagedRelay.ManagedRelayDpopSigner,

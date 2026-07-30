@@ -207,6 +207,7 @@ describe("headlessServeOutput", () => {
                     id: "startup",
                     credential: "FIXTURECODE1",
                     expiresAt: DateTime.makeUnsafe("2026-01-01T00:05:00Z"),
+                    sessionExpiration: "default" as const,
                   };
                 }),
             }),
