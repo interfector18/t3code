@@ -17,6 +17,7 @@ import {
   type AuthPairingLink,
   type AuthPairingCredentialResult,
   type AuthSessionId,
+  type AuthSessionExpiration,
   type AuthSessionState,
   authScopeResponse,
   type ServerAuthDescriptor,
@@ -58,6 +59,7 @@ export interface IssuedPairingLink {
   readonly label?: string;
   readonly createdAt: DateTime.Utc;
   readonly expiresAt: DateTime.Utc;
+  readonly sessionExpiration: AuthSessionExpiration;
 }
 
 export interface IssuedBearerSession {
@@ -67,7 +69,7 @@ export interface IssuedBearerSession {
   readonly scopes: ReadonlyArray<AuthEnvironmentScope>;
   readonly subject: string;
   readonly client: AuthClientMetadata;
-  readonly expiresAt: DateTime.Utc;
+  readonly expiresAt: DateTime.Utc | null;
 }
 
 /**
@@ -111,7 +113,7 @@ export interface AuthenticatedSession {
   readonly method: ServerAuthSessionMethod;
   readonly scopes: ReadonlyArray<AuthEnvironmentScope>;
   readonly proofKeyThumbprint?: string;
-  readonly expiresAt?: DateTime.DateTime;
+  readonly expiresAt: DateTime.DateTime | null;
 }
 
 const serverAuthInternalErrorContext = {
@@ -508,6 +510,7 @@ export class EnvironmentAuth extends Context.Service<
       readonly subject?: string;
       readonly proofKeyThumbprint?: string;
       readonly purpose?: "startup";
+      readonly sessionExpiration?: AuthSessionExpiration;
     }) => Effect.Effect<IssuedPairingLink, ServerAuthInternalError>;
     readonly issuePairingCredential: (
       input?: AuthCreatePairingCredentialInput,
@@ -525,6 +528,7 @@ export class EnvironmentAuth extends Context.Service<
       readonly subject?: string;
       readonly scopes?: ReadonlyArray<AuthEnvironmentScope>;
       readonly label?: string;
+      readonly expiration?: AuthSessionExpiration;
     }) => Effect.Effect<IssuedBearerSession, ServerAuthInternalError>;
     readonly listSessions: () => Effect.Effect<
       ReadonlyArray<AuthClientSession>,
@@ -764,7 +768,7 @@ export const make = Effect.gen(function* () {
         method: session.method,
         scopes: session.scopes,
         ...(session.proofKeyThumbprint ? { proofKeyThumbprint: session.proofKeyThumbprint } : {}),
-        ...(session.expiresAt ? { expiresAt: session.expiresAt } : {}),
+        expiresAt: session.expiresAt,
       })),
     );
 
@@ -854,7 +858,7 @@ export const make = Effect.gen(function* () {
             auth: descriptor,
             ...authScopeResponse(session.scopes),
             sessionMethod: session.method,
-            ...(session.expiresAt ? { expiresAt: DateTime.toUtc(session.expiresAt) } : {}),
+            expiresAt: session.expiresAt === null ? null : DateTime.toUtc(session.expiresAt),
           }) satisfies AuthSessionState,
       ),
       Effect.catchIf(isServerAuthCredentialError, () =>
@@ -908,6 +912,7 @@ export const make = Effect.gen(function* () {
         method: "browser-session-cookie",
         subject: grant.subject,
         scopes: grant.scopes,
+        expiration: grant.sessionExpiration,
         ...(previousSession?.method === "browser-session-cookie"
           ? { replaceSessionId: previousSession.sessionId }
           : {}),
@@ -922,7 +927,7 @@ export const make = Effect.gen(function* () {
         authenticated: true,
         ...authScopeResponse(session.scopes),
         sessionMethod: session.method,
-        expiresAt: DateTime.toUtc(session.expiresAt),
+        expiresAt: session.expiresAt === null ? null : DateTime.toUtc(session.expiresAt),
       } satisfies AuthBrowserSessionResult,
       sessionToken: session.token,
     } satisfies BootstrapExchangeResult;
@@ -930,7 +935,7 @@ export const make = Effect.gen(function* () {
 
   type ResolvedBootstrapGrant = Pick<
     PairingGrantStore.BootstrapGrant,
-    "scopes" | "subject" | "label"
+    "scopes" | "subject" | "label" | "sessionExpiration"
   > & {
     readonly method: PairingGrantStore.BootstrapGrant["method"] | "reusable-dev-token";
   };
@@ -963,6 +968,7 @@ export const make = Effect.gen(function* () {
             method: "reusable-dev-token",
             scopes: session.scopes,
             subject: "reusable-dev-token-child",
+            sessionExpiration: "never",
           }) satisfies ResolvedBootstrapGrant,
       ),
     );
@@ -997,6 +1003,7 @@ export const make = Effect.gen(function* () {
                 // Desktop restarts forget the previous bearer token. Replace
                 // its session, including stale entries left by older versions.
                 replaceActiveForSubjectAndMethod: grant.method === "desktop-bootstrap",
+                expiration: input?.proofKeyThumbprint ? "default" : grant.sessionExpiration,
                 client: {
                   ...requestMetadata,
                   ...(grant.label ? { label: grant.label } : {}),
@@ -1017,12 +1024,16 @@ export const make = Effect.gen(function* () {
                   access_token: session.token,
                   issued_token_type: AuthAccessTokenType,
                   token_type: input?.proofKeyThumbprint ? "DPoP" : "Bearer",
-                  expires_in: Math.max(
-                    0,
-                    Math.floor(
-                      (session.expiresAt.epochMilliseconds - now.epochMilliseconds) / 1000,
-                    ),
-                  ),
+                  ...(session.expiresAt === null
+                    ? {}
+                    : {
+                        expires_in: Math.max(
+                          0,
+                          Math.floor(
+                            (session.expiresAt.epochMilliseconds - now.epochMilliseconds) / 1000,
+                          ),
+                        ),
+                      }),
                   scope: encodeOAuthScope(session.scopes),
                 }) satisfies AuthAccessTokenResult,
             ),
@@ -1037,12 +1048,14 @@ export const make = Effect.gen(function* () {
     readonly subject: string;
     readonly label?: string;
     readonly purpose?: "startup";
+    readonly sessionExpiration?: AuthSessionExpiration;
   }) =>
     createPairingLink({
       scopes: input.scopes,
       subject: input.subject,
       ...(input.label ? { label: input.label } : {}),
       ...(input.purpose ? { purpose: input.purpose } : {}),
+      ...(input.sessionExpiration ? { sessionExpiration: input.sessionExpiration } : {}),
     }).pipe(
       Effect.map(
         (issued) =>
@@ -1051,6 +1064,7 @@ export const make = Effect.gen(function* () {
             credential: issued.credential,
             ...(issued.label ? { label: issued.label } : {}),
             expiresAt: issued.expiresAt,
+            sessionExpiration: issued.sessionExpiration,
           }) satisfies AuthPairingCredentialResult,
       ),
     );
@@ -1067,6 +1081,7 @@ export const make = Effect.gen(function* () {
         ...(input?.label ? { label: input.label } : {}),
         ...(input?.proofKeyThumbprint ? { proofKeyThumbprint: input.proofKeyThumbprint } : {}),
         ...(input?.purpose ? { purpose: input.purpose } : {}),
+        ...(input?.sessionExpiration ? { sessionExpiration: input.sessionExpiration } : {}),
       });
       return {
         id: issued.id,
@@ -1076,6 +1091,7 @@ export const make = Effect.gen(function* () {
         ...(issued.label ? { label: issued.label } : {}),
         createdAt: DateTime.toUtc(createdAt),
         expiresAt: DateTime.toUtc(issued.expiresAt),
+        sessionExpiration: issued.sessionExpiration,
       } satisfies IssuedPairingLink;
     },
     Effect.mapError((cause) => new ServerAuthPairingLinkCreationError({ cause })),
@@ -1115,6 +1131,7 @@ export const make = Effect.gen(function* () {
           deviceType: "bot",
         },
         ...(input?.ttl ? { ttl: input.ttl } : {}),
+        ...(input?.expiration ? { expiration: input.expiration } : {}),
       })
       .pipe(
         Effect.map(
@@ -1126,7 +1143,7 @@ export const make = Effect.gen(function* () {
               scopes: issued.scopes,
               subject: input?.subject ?? DEFAULT_SESSION_SUBJECT,
               client: issued.client,
-              expiresAt: DateTime.toUtc(issued.expiresAt),
+              expiresAt: issued.expiresAt === null ? null : DateTime.toUtc(issued.expiresAt),
             }) satisfies IssuedBearerSession,
         ),
         Effect.mapError((cause) => new ServerAuthSessionTokenIssueError({ cause })),
@@ -1159,6 +1176,7 @@ export const make = Effect.gen(function* () {
       scopes: input?.scopes ?? AuthStandardClientScopes,
       subject: "one-time-token",
       ...(input?.label ? { label: input.label } : {}),
+      ...(input?.sessionExpiration ? { sessionExpiration: input.sessionExpiration } : {}),
     }).pipe(Effect.withSpan("EnvironmentAuth.issuePairingCredential"));
 
   const issueStartupPairingCredential: EnvironmentAuth["Service"]["issueStartupPairingCredential"] =
@@ -1179,6 +1197,7 @@ export const make = Effect.gen(function* () {
               credential: devAuth.credential,
               label: "Reusable dev token",
               expiresAt: DateTime.toUtc(session.expiresAt ?? REUSABLE_DEV_SESSION_EXPIRES_AT),
+              sessionExpiration: "never",
             }) satisfies AuthPairingCredentialResult,
         ),
         Effect.catch((cause) =>
@@ -1262,7 +1281,7 @@ export const make = Effect.gen(function* () {
               subject: session.subject,
               method: session.method,
               scopes: session.scopes,
-              ...(session.expiresAt ? { expiresAt: session.expiresAt } : {}),
+              expiresAt: session.expiresAt,
             })),
           );
         }
@@ -1302,11 +1321,13 @@ export const make = Effect.gen(function* () {
         method: "bearer-access-token",
         scopes: mcpClientScopes(input.access),
         ttl: MCP_CLIENT_SESSION_TTL,
+        expiration: "default",
         ...(input.access === "read-only" ? {} : { runtimeModeCeiling: input.access }),
         client: { ...input.client, label: input.label, deviceType: "bot" },
       })
       .pipe(
-        Effect.map((issued) => ({ token: issued.token, expiresAt: issued.expiresAt })),
+        // MCP OAuth sessions always use the explicit expiring policy above.
+        Effect.map((issued) => ({ token: issued.token, expiresAt: issued.expiresAt! })),
         Effect.mapError((cause) => new ServerAuthSessionTokenIssueError({ cause })),
         Effect.withSpan("EnvironmentAuth.issueMcpClientSession"),
       );
