@@ -117,6 +117,7 @@ async function installAuthApi(input: {
     readonly credential: string;
     readonly label?: string;
     readonly expiresAt: DateTime.Utc;
+    readonly sessionExpiration: "default" | "never";
   }>;
 }) {
   const testApi = await installEnvironmentHttpTest({
@@ -798,6 +799,7 @@ describe("resolveInitialServerAuthGateState", () => {
         Effect.succeed({
           id: "pairing-link-1",
           credential: "pairing-token",
+          sessionExpiration: payload.sessionExpiration ?? "default",
           ...(payload.label === undefined ? {} : { label: payload.label }),
           expiresAt: SESSION_EXPIRES_AT,
         }),
@@ -807,6 +809,7 @@ describe("resolveInitialServerAuthGateState", () => {
     const credential = await createServerPairingCredential({
       label: "Julius iPhone",
       scopes: ["orchestration:read"],
+      sessionExpiration: "never",
     });
     expect(credential).toMatchObject({
       id: "pairing-link-1",
@@ -815,7 +818,11 @@ describe("resolveInitialServerAuthGateState", () => {
     });
     expect(DateTime.formatIso(credential.expiresAt)).toBe("2026-04-05T00:00:00.000Z");
     expect(testApi.calls.pairingCredential).toEqual([
-      { label: "Julius iPhone", scopes: ["orchestration:read"] },
+      {
+        label: "Julius iPhone",
+        scopes: ["orchestration:read"],
+        sessionExpiration: "never",
+      },
     ]);
   });
 });
