@@ -119,7 +119,7 @@ export interface ServerClientSessionRecord {
   readonly method: ServerAuthSessionMethod;
   readonly client: AuthClientMetadata;
   readonly issuedAt: string;
-  readonly expiresAt: string;
+  readonly expiresAt: string | null;
   readonly lastConnectedAt: string | null;
   readonly connected: boolean;
   readonly current: boolean;

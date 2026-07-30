@@ -11,6 +11,7 @@ import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
 import { hasPendingMigrations, runMigrations } from "./Migrations.ts";
 import { initializeV2Database } from "./initializeV2Database.ts";
 import * as ServerConfig from "../config.ts";
+import * as AuthNonExpiringSessions from "./ManualMigrations/AuthNonExpiringSessions.ts";
 import * as ServerOwnership from "../serverOwnership.ts";
 
 const WAL_SIZE_LIMIT_BYTES = 128 * 1024 * 1024;
@@ -53,7 +54,9 @@ const damagedDatabaseError = (dbPath: string, cause: SqlError.SqlError) =>
 // CLI commands open the server's database from another process; migrating behind its owner changes the schema it runs on.
 const runMigrationsAsOwner = Effect.fn("SqlitePersistence.runMigrationsAsOwner")(function* () {
   // With nothing pending, runMigrations only validates the recorded history and writes nothing.
-  if (!(yield* hasPendingMigrations())) return yield* runMigrations();
+  if (!(yield* hasPendingMigrations()) && !(yield* AuthNonExpiringSessions.hasPending)) {
+    return yield* runMigrations();
+  }
   const { serverRuntimeStatePath } = yield* ServerConfig.ServerConfig;
   yield* ServerOwnership.holdServerOwnershipLock(serverRuntimeStatePath).pipe(
     Effect.catchTags({
@@ -62,6 +65,7 @@ const runMigrationsAsOwner = Effect.fn("SqlitePersistence.runMigrationsAsOwner")
     }),
   );
   yield* runMigrations();
+  yield* AuthNonExpiringSessions.migrate;
 }, Effect.scoped);
 
 const makeLayerSetup = <E, R>(migrate: Effect.Effect<unknown, E, R>) =>
@@ -98,7 +102,9 @@ const makeLayerSetup = <E, R>(migrate: Effect.Effect<unknown, E, R>) =>
     }).pipe(Effect.withSpan("Sqlite.setup")),
   );
 
-const layerSetup = makeLayerSetup(runMigrations());
+const layerSetup = makeLayerSetup(
+  runMigrations().pipe(Effect.andThen(AuthNonExpiringSessions.migrate)),
+);
 
 const makeLayerFromPath = <E, R>(makeSetup: (dbPath: string) => Layer.Layer<never, E, R>) =>
   Effect.fn("makeSqlitePersistenceLive")(function* (dbPath: string) {

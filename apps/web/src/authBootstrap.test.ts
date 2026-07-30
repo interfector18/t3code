@@ -101,6 +101,7 @@ async function installAuthApi(input: {
     readonly credential: string;
     readonly label?: string;
     readonly expiresAt: DateTime.Utc;
+    readonly sessionExpiration: "default" | "never";
   }>;
 }) {
   const testApi = await installEnvironmentHttpTest({

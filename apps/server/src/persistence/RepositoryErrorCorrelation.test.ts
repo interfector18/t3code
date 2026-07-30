@@ -162,6 +162,7 @@ describe("persistence error correlation", () => {
           method: "one-time-token",
           scopes,
           subject,
+          sessionExpiration: "default",
           label: null,
           proofKeyThumbprint: null,
           createdAt: issuedAt,

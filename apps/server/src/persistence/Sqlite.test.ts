@@ -79,6 +79,23 @@ it.effect.skipIf(HostProcess.Platform.defaultValue() !== "linux")(
   },
 );
 
+it.effect("applies the persistent-session compatibility schema on startup", () =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const pairingColumns = yield* sql<{
+      readonly name: string;
+    }>`PRAGMA table_info(auth_pairing_links)`;
+    const sessionColumns = yield* sql<{
+      readonly name: string;
+      readonly notnull: number;
+    }>`PRAGMA table_info(auth_sessions)`;
+    assert.isTrue(pairingColumns.some((column) => column.name === "session_expiration"));
+    assert.equal(sessionColumns.find((column) => column.name === "expires_at")?.notnull, 0);
+    assert.isTrue(sessionColumns.some((column) => column.name === "client_surface"));
+    assert.isTrue(sessionColumns.some((column) => column.name === "client_app_version"));
+  }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
+);
+
 it.effect("drops planner statistics a database already has", () => {
   const tempDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-sqlite-stats-"));
   const dbPath = NodePath.join(tempDir, "state.sqlite");
@@ -214,28 +231,31 @@ const latestRecordedMigrationId = Effect.gen(function* () {
 const layerT3Home = ServerConfig.layerTest(process.cwd(), { prefix: "t3-sqlite-cli-" });
 
 it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("layerCliConfig", (it) => {
-  it.effect("does not migrate a T3 home a running server owns", () =>
-    Effect.gen(function* () {
-      const recorded = Math.max(...migrationManifest.map(([id]) => id)) - 1;
-      yield* migrateTo(recorded);
-      yield* ownT3Home();
+  it.effect.each([-1, 0])(
+    "does not migrate a T3 home a running server owns (offset %s)",
+    (offset) =>
+      Effect.gen(function* () {
+        const recorded = Math.max(...migrationManifest.map(([id]) => id)) + offset;
+        yield* migrateTo(recorded);
+        yield* ownT3Home();
 
-      const opened = yield* Effect.void.pipe(
-        Effect.provide(SqlitePersistence.layerCliConfig),
-        Effect.result,
-      );
+        const opened = yield* Effect.void.pipe(
+          Effect.provide(SqlitePersistence.layerCliConfig),
+          Effect.result,
+        );
 
-      assert.equal(yield* latestRecordedMigrationId, recorded);
-      assert.equal(opened._tag, "Failure");
-      if (opened._tag === "Failure") {
-        assert.instanceOf(opened.failure, SqlitePersistence.ServerOwnsDatabaseError);
-      }
-    }).pipe(Effect.scoped, Effect.provide(layerT3Home)),
+        assert.equal(yield* latestRecordedMigrationId, recorded);
+        assert.equal(opened._tag, "Failure");
+        if (opened._tag === "Failure") {
+          assert.instanceOf(opened.failure, SqlitePersistence.ServerOwnsDatabaseError);
+        }
+      }).pipe(Effect.scoped, Effect.provide(layerT3Home)),
   );
 
   it.effect("opens a current T3 home while a running server owns it", () =>
     Effect.gen(function* () {
       yield* migrateTo();
+      yield* Effect.void.pipe(Effect.provide(SqlitePersistence.layerCliConfig));
       yield* ownT3Home();
 
       yield* Effect.void.pipe(Effect.provide(SqlitePersistence.layerCliConfig));
