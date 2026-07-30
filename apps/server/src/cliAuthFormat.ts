@@ -24,6 +24,10 @@ function toIsoString(value: DateTime.DateTime | DateTime.Utc): string {
   return DateTime.formatIso(DateTime.toUtc(value));
 }
 
+function formatExpiration(value: DateTime.DateTime | DateTime.Utc | null): string {
+  return value === null ? "Never" : toIsoString(value);
+}
+
 export function formatIssuedPairingCredential(
   credential: IssuedPairingLink,
   options?: {
@@ -48,6 +52,7 @@ export function formatIssuedPairingCredential(
         credential: credential.credential,
         ...(credential.label ? { label: credential.label } : {}),
         scopes: credential.scopes,
+        sessionExpiration: credential.sessionExpiration,
         expiresAt: toIsoString(credential.expiresAt),
         ...(pairUrl ? { pairUrl } : {}),
       },
@@ -62,6 +67,7 @@ export function formatIssuedPairingCredential(
       `Token: ${credential.credential}`,
       ...(pairUrl ? [`Pair URL: ${pairUrl}`] : []),
       `Expires at: ${credential.expiresAt}`,
+      `Client session expiration: ${credential.sessionExpiration === "never" ? "Never" : "30 days"}`,
     ].join(newline) + newline
   );
 }
@@ -78,6 +84,7 @@ export function formatPairingCredentialList(
         id: credential.id,
         ...(credential.label ? { label: credential.label } : {}),
         scopes: credential.permissions ?? credential.scopes,
+        sessionExpiration: credential.sessionExpiration,
         createdAt: toIsoString(credential.createdAt),
         expiresAt: toIsoString(credential.expiresAt),
       })),
@@ -124,7 +131,7 @@ export function formatIssuedSession(
         scopes: session.scopes,
         subject: session.subject,
         client: session.client,
-        expiresAt: toIsoString(session.expiresAt),
+        expiresAt: session.expiresAt === null ? null : toIsoString(session.expiresAt),
       },
       null,
       2,
@@ -138,7 +145,7 @@ export function formatIssuedSession(
       `Token: ${session.token}`,
       `Subject: ${session.subject}`,
       `Client: ${formatClientMetadata(session.client)}`,
-      `Expires at: ${toIsoString(session.expiresAt)}`,
+      `Expires at: ${formatExpiration(session.expiresAt)}`,
     ].join(newline) + newline
   );
 }
@@ -159,7 +166,7 @@ export function formatSessionList(
         client: session.client,
         connected: session.connected,
         issuedAt: toIsoString(session.issuedAt),
-        expiresAt: toIsoString(session.expiresAt),
+        expiresAt: session.expiresAt === null ? null : toIsoString(session.expiresAt),
         lastConnectedAt: session.lastConnectedAt ? toIsoString(session.lastConnectedAt) : null,
       })),
       null,
@@ -184,7 +191,7 @@ export function formatSessionList(
           `  last connected: ${
             session.lastConnectedAt ? toIsoString(session.lastConnectedAt) : "never"
           }`,
-          `  expires: ${toIsoString(session.expiresAt)}`,
+          `  expires: ${formatExpiration(session.expiresAt)}`,
         ].join(newline),
       )
       .join(`${newline}${newline}`) + newline
