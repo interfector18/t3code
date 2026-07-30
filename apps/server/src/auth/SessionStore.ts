@@ -7,6 +7,7 @@ import {
   type AuthEnvironmentScope,
   AuthWebSocketTicketUse,
   RuntimeMode,
+  type AuthSessionExpiration,
   type ServerAuthSessionMethod,
 } from "@t3tools/contracts";
 import * as Context from "effect/Context";
@@ -44,7 +45,7 @@ export interface IssuedSession {
   readonly token: string;
   readonly method: ServerAuthSessionMethod;
   readonly client: AuthClientMetadata;
-  readonly expiresAt: DateTime.DateTime;
+  readonly expiresAt: DateTime.DateTime | null;
   readonly scopes: ReadonlyArray<AuthEnvironmentScope>;
   readonly proofKeyThumbprint?: string;
 }
@@ -54,7 +55,7 @@ export interface VerifiedSession {
   readonly token: string;
   readonly method: ServerAuthSessionMethod;
   readonly client: AuthClientMetadata;
-  readonly expiresAt?: DateTime.DateTime;
+  readonly expiresAt: DateTime.DateTime | null;
   readonly subject: string;
   readonly scopes: ReadonlyArray<AuthEnvironmentScope>;
   readonly proofKeyThumbprint?: string;
@@ -146,7 +147,7 @@ export class InvalidSessionExpirationClaimError extends Schema.TaggedError<Inval
   "InvalidSessionExpirationClaimError",
   {
     sessionId: AuthSessionId,
-    expirationClaim: Schema.Number,
+    expirationClaim: Schema.optional(Schema.Number),
   },
 ) {
   override get message(): string {
@@ -376,6 +377,7 @@ export class SessionStore extends Context.Service<
     readonly legacyCookieName: string | undefined;
     readonly issue: (input?: {
       readonly ttl?: Duration.Duration;
+      readonly expiration?: AuthSessionExpiration;
       readonly subject?: string;
       readonly method?: ServerAuthSessionMethod;
       readonly scopes?: ReadonlyArray<AuthEnvironmentScope>;
@@ -441,7 +443,7 @@ const SessionClaims = Schema.Struct({
   /** Signed, so a client cannot shed its peer link's limits. */
   plk: Schema.optionalKey(Schema.Literal(1)),
   iat: Schema.Number,
-  exp: Schema.Number,
+  exp: Schema.optionalKey(Schema.Number),
 });
 type SessionClaims = typeof SessionClaims.Type;
 
@@ -561,7 +563,11 @@ const make = Effect.gen(function* () {
     const connectedSessions = yield* Ref.get(connectedSessionsRef);
     const connected = connectedSessions.has(row.value.sessionId);
     const now = yield* DateTime.now;
-    if (!connected && row.value.expiresAt.epochMilliseconds <= now.epochMilliseconds) {
+    if (
+      !connected &&
+      row.value.expiresAt !== null &&
+      row.value.expiresAt.epochMilliseconds <= now.epochMilliseconds
+    ) {
       return Option.none<AuthClientSession>();
     }
     return Option.some(
@@ -648,9 +654,12 @@ const make = Effect.gen(function* () {
           .pipe(Effect.mapError((cause) => new SessionCredentialIssueError({ cause }))),
       );
       const issuedAt = yield* DateTime.now;
-      const expiresAt = DateTime.add(issuedAt, {
-        milliseconds: Duration.toMillis(input?.ttl ?? DEFAULT_SESSION_TTL),
-      });
+      const expiresAt =
+        input?.expiration === "never"
+          ? null
+          : DateTime.add(issuedAt, {
+              milliseconds: Duration.toMillis(input?.ttl ?? DEFAULT_SESSION_TTL),
+            });
       const claims: SessionClaims = {
         v: 1,
         kind: "session",
@@ -662,7 +671,7 @@ const make = Effect.gen(function* () {
         ...(input?.runtimeModeCeiling ? { rtc: input.runtimeModeCeiling } : {}),
         ...(input?.peerLink === true ? { plk: 1 as const } : {}),
         iat: issuedAt.epochMilliseconds,
-        exp: expiresAt.epochMilliseconds,
+        ...(expiresAt === null ? {} : { exp: expiresAt.epochMilliseconds }),
       };
 
       const encodedPayload = yield* encodeClaims(claims).pipe(
@@ -741,7 +750,7 @@ const make = Effect.gen(function* () {
         token: `${encodedPayload}.${signature}`,
         method: claims.method,
         client,
-        expiresAt: expiresAt,
+        expiresAt,
         scopes: claims.scopes,
         ...(claims.jkt ? { proofKeyThumbprint: claims.jkt } : {}),
       } satisfies IssuedSession;
@@ -769,7 +778,10 @@ const make = Effect.gen(function* () {
           });
         }
         const observedAt = yield* DateTime.now;
-        if (row.value.expiresAt.epochMilliseconds <= observedAt.epochMilliseconds) {
+        if (
+          row.value.expiresAt !== null &&
+          row.value.expiresAt.epochMilliseconds <= observedAt.epochMilliseconds
+        ) {
           return yield* new SessionTokenExpiredError({
             sessionId: devAuth.sessionId,
             expiresAt: row.value.expiresAt,
@@ -800,22 +812,6 @@ const make = Effect.gen(function* () {
         Effect.mapError((cause) => new InvalidSessionTokenPayloadError({ cause })),
       );
 
-      const observedAt = yield* DateTime.now;
-      const expiresAt = DateTime.make(claims.exp);
-      if (Option.isNone(expiresAt)) {
-        return yield* new InvalidSessionExpirationClaimError({
-          sessionId: claims.sid,
-          expirationClaim: claims.exp,
-        });
-      }
-      if (claims.exp <= observedAt.epochMilliseconds) {
-        return yield* new SessionTokenExpiredError({
-          sessionId: claims.sid,
-          expiresAt: expiresAt.value,
-          observedAt,
-        });
-      }
-
       const row = yield* authSessions
         .getById({ sessionId: claims.sid })
         .pipe(
@@ -832,13 +828,36 @@ const make = Effect.gen(function* () {
           revokedAt: row.value.revokedAt,
         });
       }
+      const observedAt = yield* DateTime.now;
+      if (row.value.expiresAt !== null) {
+        if (claims.exp === undefined) {
+          return yield* new InvalidSessionExpirationClaimError({ sessionId: claims.sid });
+        }
+        const claimedExpiresAt = DateTime.make(claims.exp);
+        if (Option.isNone(claimedExpiresAt)) {
+          return yield* new InvalidSessionExpirationClaimError({
+            sessionId: claims.sid,
+            expirationClaim: claims.exp,
+          });
+        }
+        if (
+          claims.exp <= observedAt.epochMilliseconds ||
+          row.value.expiresAt.epochMilliseconds <= observedAt.epochMilliseconds
+        ) {
+          return yield* new SessionTokenExpiredError({
+            sessionId: claims.sid,
+            expiresAt: row.value.expiresAt,
+            observedAt,
+          });
+        }
+      }
 
       return {
         sessionId: claims.sid,
         token,
         method: claims.method,
         client: toClientMetadata(row.value.client),
-        expiresAt: expiresAt.value,
+        expiresAt: row.value.expiresAt,
         subject: claims.sub,
         scopes: row.value.scopes,
         ...(claims.jkt ? { proofKeyThumbprint: claims.jkt } : {}),
@@ -932,7 +951,10 @@ const make = Effect.gen(function* () {
     if (Option.isNone(row)) {
       return yield* new UnknownWebSocketSessionError({ sessionId: claims.sid });
     }
-    if (row.value.expiresAt.epochMilliseconds <= observedAt.epochMilliseconds) {
+    if (
+      row.value.expiresAt !== null &&
+      row.value.expiresAt.epochMilliseconds <= observedAt.epochMilliseconds
+    ) {
       return yield* new WebSocketSessionExpiredError({
         sessionId: claims.sid,
         expiresAt: row.value.expiresAt,
@@ -1073,9 +1095,13 @@ const make = Effect.gen(function* () {
           const rows = yield* Effect.forEach(chain, readRow);
           if (rows.some((row) => Option.isNone(row) || row.value.revokedAt !== null)) return;
           const now = yield* DateTime.now;
-          const remaining = current.expiresAt.epochMilliseconds - now.epochMilliseconds;
+          const remaining =
+            current.expiresAt === null
+              ? Number.POSITIVE_INFINITY
+              : current.expiresAt.epochMilliseconds - now.epochMilliseconds;
           if (remaining > 0) {
-            yield* Effect.raceFirst(nextRemoval, Effect.sleep(Duration.millis(remaining)));
+            if (current.expiresAt === null) yield* nextRemoval;
+            else yield* Effect.raceFirst(nextRemoval, Effect.sleep(Duration.millis(remaining)));
             continue;
           }
           const successorId =

@@ -16,9 +16,14 @@ import * as ServerConfig from "../config.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import AuthNonExpiringSessions from "../persistence/ManualMigrations/AuthNonExpiringSessions.ts";
 import * as SessionStore from "./SessionStore.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
 import { base64UrlDecodeUtf8, base64UrlEncode, signPayload } from "./utils.ts";
+
+const layerSqlitePersistenceWithPersistentSessions = Layer.effectDiscard(
+  AuthNonExpiringSessions,
+).pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
 
 const layerServerConfig = (overrides?: Partial<ServerConfig.ServerConfig["Service"]>) =>
   Layer.effect(
@@ -42,7 +47,7 @@ const layerSessionStore = (
   environmentId = EnvironmentId.make("test-environment"),
 ) =>
   SessionStore.layer.pipe(
-    Layer.provide(SqlitePersistence.layerMemory),
+    Layer.provideMerge(layerSqlitePersistenceWithPersistentSessions),
     Layer.provide(ServerSecretStore.layer),
     Layer.provide(layerServerEnvironment(environmentId)),
     Layer.provide(layerServerConfig(overrides)),
@@ -226,6 +231,27 @@ it.layer(NodeServices.layer)("SessionStore.layer", (it) => {
       expect(yield* Deferred.isDone(invalidated)).toBe(false);
       yield* TestClock.adjust(Duration.millis(1));
       yield* Fiber.join(watcher);
+    }).pipe(Effect.scoped, Effect.provide(Layer.merge(layerSessionStore(), TestClock.layer()))),
+  );
+
+  it.effect("keeps a non-expiring connection alive until revoked", () =>
+    Effect.gen(function* () {
+      const sessions = yield* SessionStore.SessionStore;
+      const client = yield* sessions.issue({ subject: "persistent-phone", expiration: "never" });
+      yield* sessions.markConnected(client.sessionId);
+      const invalidated = yield* Deferred.make<void>();
+      const watcher = yield* sessions
+        .awaitInvalidation(client.sessionId)
+        .pipe(
+          Effect.andThen(Deferred.succeed(invalidated, undefined)),
+          Effect.forkScoped({ startImmediately: true }),
+        );
+      yield* TestClock.adjust(Duration.days(365));
+      expect(yield* Deferred.isDone(invalidated)).toBe(false);
+      yield* sessions.revoke(client.sessionId);
+      yield* Fiber.join(watcher);
+      expect(yield* Deferred.isDone(invalidated)).toBe(true);
+      yield* sessions.awaitInvalidation(client.sessionId);
     }).pipe(Effect.scoped, Effect.provide(Layer.merge(layerSessionStore(), TestClock.layer()))),
   );
 
@@ -520,7 +546,7 @@ it.layer(NodeServices.layer)("SessionStore.layer", (it) => {
       expect(error._tag).toBe("WebSocketSessionExpiredError");
       if (error._tag === "WebSocketSessionExpiredError") {
         expect(error.sessionId).toBe(issued.sessionId);
-        expect(error.expiresAt.epochMilliseconds).toBe(issued.expiresAt.epochMilliseconds);
+        expect(error.expiresAt.epochMilliseconds).toBe(issued.expiresAt!.epochMilliseconds);
         expect(error.observedAt.epochMilliseconds).toBeGreaterThan(
           error.expiresAt.epochMilliseconds,
         );
