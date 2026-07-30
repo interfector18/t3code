@@ -15,11 +15,15 @@ import * as SqlClient from "effect/sql/SqlClient";
 import * as ServerConfig from "../config.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import { PersistenceSqlError } from "../persistence/Errors.ts";
-
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import AuthNonExpiringSessions from "../persistence/ManualMigrations/AuthNonExpiringSessions.ts";
 import * as AuthSessions from "../persistence/AuthSessions.ts";
 import * as SessionStore from "./SessionStore.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
+
+const layerSqlitePersistenceWithPersistentSessions = Layer.effectDiscard(
+  AuthNonExpiringSessions,
+).pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
 
 const layerServerConfig = (overrides?: Partial<ServerConfig.ServerConfig["Service"]>) =>
   Layer.effect(
@@ -43,7 +47,7 @@ const layerSessionStore = (
   environmentId = EnvironmentId.make("test-environment"),
 ) =>
   SessionStore.layer.pipe(
-    Layer.provide(SqlitePersistence.layerMemory),
+    Layer.provideMerge(layerSqlitePersistenceWithPersistentSessions),
     Layer.provide(ServerSecretStore.layer),
     Layer.provide(layerServerEnvironment(environmentId)),
     Layer.provide(layerServerConfig(overrides)),
@@ -106,7 +110,7 @@ const layerFailingSessionLookupCredential = Layer.effect(
 ).pipe(
   Layer.provide(layerFailingSessionLookupRepository),
   Layer.provide(ServerSecretStore.layer),
-  Layer.provide(SqlitePersistence.layerMemory),
+  Layer.provide(layerSqlitePersistenceWithPersistentSessions),
   Layer.provide(layerServerEnvironment(EnvironmentId.make("test-environment"))),
   Layer.provide(layerServerConfig()),
 );
@@ -273,7 +277,7 @@ it.layer(NodeServices.layer)("SessionStore.layer", (it) => {
       expect(verified.scopes).toEqual(["orchestration:read", "access:write"]);
       expect(verified.client.label).toBe("Desktop app");
       expect(verified.client.browser).toBe("Electron");
-      expect(verified.expiresAt?.toString()).toBe(issued.expiresAt.toString());
+      expect(verified.expiresAt?.toString()).toBe(issued.expiresAt!.toString());
     }).pipe(Effect.provide(layerSessionStore())),
   );
   it.effect("carries a runtime-mode ceiling only on sessions issued with one", () =>
@@ -298,6 +302,60 @@ it.layer(NodeServices.layer)("SessionStore.layer", (it) => {
       expect(error._tag).toBe("MalformedSessionTokenError");
       expect(error.message).toContain("Malformed session token");
     }).pipe(Effect.provide(layerSessionStore())),
+  );
+  it.effect("supports explicit non-expiring sessions and promoted legacy tokens", () =>
+    Effect.gen(function* () {
+      const sessions = yield* SessionStore.SessionStore;
+      const sql = yield* SqlClient.SqlClient;
+      const permanent = yield* sessions.issue({
+        method: "bearer-access-token",
+        subject: "permanent-phone",
+        expiration: "never",
+      });
+      const promoted = yield* sessions.issue({
+        method: "bearer-access-token",
+        subject: "promoted-phone",
+        ttl: Duration.seconds(1),
+      });
+      yield* sql`
+        UPDATE auth_sessions SET expires_at = NULL WHERE session_id = ${promoted.sessionId}
+      `;
+      yield* TestClock.adjust(Duration.seconds(2));
+
+      expect(permanent.expiresAt).toBeNull();
+      expect((yield* sessions.verify(permanent.token)).expiresAt).toBeNull();
+      expect((yield* sessions.verify(promoted.token)).expiresAt).toBeNull();
+
+      const changes = yield* Queue.unbounded<SessionStore.SessionCredentialChange>();
+      yield* sessions.streamChanges.pipe(
+        Stream.runForEach((change) => Queue.offer(changes, change)),
+        Effect.forkScoped({ startImmediately: true }),
+      );
+      yield* sessions.markConnected(permanent.sessionId);
+      expect(yield* Queue.take(changes)).toMatchObject({
+        type: "clientUpserted",
+        clientSession: { sessionId: permanent.sessionId, connected: true },
+      });
+      yield* sessions.markDisconnected(permanent.sessionId);
+      expect(yield* Queue.take(changes)).toMatchObject({
+        type: "clientUpserted",
+        clientSession: { sessionId: permanent.sessionId, connected: false },
+      });
+      expect(yield* sessions.listActive()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            sessionId: permanent.sessionId,
+            expiresAt: null,
+            connected: false,
+          }),
+        ]),
+      );
+
+      yield* sessions.revoke(permanent.sessionId);
+      expect((yield* Effect.flip(sessions.verify(permanent.token)))._tag).toBe(
+        "SessionTokenRevokedError",
+      );
+    }).pipe(Effect.scoped, Effect.provide(Layer.merge(layerSessionStore(), TestClock.layer()))),
   );
   it.effect("preserves repository failures while verifying session and websocket credentials", () =>
     Effect.gen(function* () {
@@ -444,7 +502,7 @@ it.layer(NodeServices.layer)("SessionStore.layer", (it) => {
       expect(error._tag).toBe("WebSocketSessionExpiredError");
       if (error._tag === "WebSocketSessionExpiredError") {
         expect(error.sessionId).toBe(issued.sessionId);
-        expect(error.expiresAt.epochMilliseconds).toBe(issued.expiresAt.epochMilliseconds);
+        expect(error.expiresAt.epochMilliseconds).toBe(issued.expiresAt!.epochMilliseconds);
         expect(error.observedAt.epochMilliseconds).toBeGreaterThan(
           error.expiresAt.epochMilliseconds,
         );
@@ -472,7 +530,7 @@ it.layer(NodeServices.layer)("SessionStore.layer", (it) => {
       expect(sessionError._tag).toBe("SessionTokenExpiredError");
       if (sessionError._tag === "SessionTokenExpiredError") {
         expect(sessionError.sessionId).toBe(issued.sessionId);
-        expect(sessionError.expiresAt.epochMilliseconds).toBe(issued.expiresAt.epochMilliseconds);
+        expect(sessionError.expiresAt.epochMilliseconds).toBe(issued.expiresAt!.epochMilliseconds);
         expect(sessionError.observedAt.epochMilliseconds).toBeGreaterThan(
           sessionError.expiresAt.epochMilliseconds,
         );

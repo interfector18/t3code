@@ -201,10 +201,14 @@ export function failEnvironmentInternal(reason: EnvironmentInternalErrorReason, 
   });
 }
 
-const appendSessionCookie = (cookieName: string, token: string, expiresAt: DateTime.DateTime) =>
+const appendSessionCookie = (
+  cookieName: string,
+  token: string,
+  expiresAt: DateTime.DateTime | null,
+) =>
   Effect.fromResult(
     Cookies.set(Cookies.empty, cookieName, token, {
-      expires: DateTime.toDate(expiresAt),
+      ...(expiresAt === null ? {} : { expires: DateTime.toDate(expiresAt) }),
       httpOnly: true,
       path: "/",
       sameSite: "lax",
@@ -310,7 +314,9 @@ export const layer = HttpApiBuilder.group(
             const cookieName = result.cookieName ?? sessions.cookieName;
             const selectedCookie = yield* Effect.fromResult(
               Cookies.set(Cookies.empty, cookieName, result.sessionToken, {
-                expires: DateTime.toDate(result.response.expiresAt),
+                ...(result.response.expiresAt === null
+                  ? {}
+                  : { expires: DateTime.toDate(result.response.expiresAt) }),
                 httpOnly: true,
                 path: "/",
                 sameSite: "lax",

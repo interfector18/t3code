@@ -195,6 +195,7 @@ import {
   threadJumpCommandForIndex,
   threadJumpIndexFromCommand,
 } from "../../keybindings";
+import { formatSessionExpiration } from "./accessSessionExpiration";
 
 const DEFAULT_TAILSCALE_SERVE_PORT = 443;
 const EMPTY_ADVERTISED_ENDPOINTS: ReadonlyArray<AdvertisedEndpoint> = [];
@@ -491,7 +492,8 @@ function toDesktopClientSessionRecord(clientSession: AuthClientSession): ServerC
   return {
     ...clientSession,
     issuedAt: DateTime.formatIso(clientSession.issuedAt),
-    expiresAt: DateTime.formatIso(clientSession.expiresAt),
+    expiresAt:
+      clientSession.expiresAt === null ? null : DateTime.formatIso(clientSession.expiresAt),
     lastConnectedAt:
       clientSession.lastConnectedAt === null
         ? null
@@ -1039,6 +1041,9 @@ const ConnectedClientListRow = memo(function ConnectedClientListRow({
             ) : null}
             <AccessScopeSummary scopes={clientSession.scopes} label="Client scopes" />
           </p>
+          <p className="text-xs text-muted-foreground">
+            Expires: {formatSessionExpiration(clientSession.expiresAt, formatAccessTimestamp)}
+          </p>
         </div>
         <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
           {!clientSession.current ? (
@@ -1076,6 +1081,7 @@ const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHeaderActio
     ...AuthStandardClientScopes,
   ]);
   const [isCreatingPairingLink, setIsCreatingPairingLink] = useState(false);
+  const [neverExpireClientSession, setNeverExpireClientSession] = useState(false);
 
   const handleCreatePairingLink = useCallback(async () => {
     setIsCreatingPairingLink(true);
@@ -1083,10 +1089,12 @@ const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHeaderActio
       const created = await createServerPairingCredential({
         label: pairingLabel,
         scopes: pairingScopes,
+        sessionExpiration: neverExpireClientSession ? "never" : "default",
       });
       onPairingLinkCreated(created);
       setPairingLabel("");
       setPairingScopes([...AuthStandardClientScopes]);
+      setNeverExpireClientSession(false);
       setDialogOpen(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create pairing URL.";
@@ -1100,7 +1108,7 @@ const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHeaderActio
     } finally {
       setIsCreatingPairingLink(false);
     }
-  }, [onPairingLinkCreated, pairingLabel, pairingScopes]);
+  }, [neverExpireClientSession, onPairingLinkCreated, pairingLabel, pairingScopes]);
 
   const togglePairingScope = useCallback((scope: AuthEnvironmentScope, checked: boolean) => {
     setPairingScopes((current) =>
@@ -1127,6 +1135,7 @@ const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHeaderActio
           if (!open) {
             setPairingLabel("");
             setPairingScopes([...AuthStandardClientScopes]);
+            setNeverExpireClientSession(false);
           }
         }}
       >
@@ -1215,6 +1224,23 @@ const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHeaderActio
                 </p>
               ) : null}
             </section>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-input bg-muted/25 px-3 py-2.5">
+              <Checkbox
+                className="mt-0.5"
+                checked={neverExpireClientSession}
+                disabled={isCreatingPairingLink}
+                onCheckedChange={(checked) => setNeverExpireClientSession(checked === true)}
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-medium text-foreground">
+                  Never expire this client session
+                </span>
+                <span className="block text-xs leading-snug text-muted-foreground">
+                  The one-time pairing link still expires after five minutes. The paired client
+                  stays authorized until you revoke it.
+                </span>
+              </span>
+            </label>
           </DialogPanel>
           <DialogFooter variant="bare">
             <Button
