@@ -640,6 +640,7 @@ it.effect(
           layerWsRpc(
             {
               sessionId: AuthSessionId.make("config-test"),
+              expiresAt: null,
               subject: "config-test",
               method: "browser-session-cookie",
               scopes: [],

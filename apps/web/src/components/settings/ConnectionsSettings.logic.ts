@@ -323,7 +323,8 @@ export function toDesktopClientSessionRecord(
     ...clientSession,
     scopes: clientSession.permissions ?? clientSession.scopes,
     issuedAt: DateTime.formatIso(clientSession.issuedAt),
-    expiresAt: DateTime.formatIso(clientSession.expiresAt),
+    expiresAt:
+      clientSession.expiresAt === null ? null : DateTime.formatIso(clientSession.expiresAt),
     lastConnectedAt:
       clientSession.lastConnectedAt === null
         ? null
