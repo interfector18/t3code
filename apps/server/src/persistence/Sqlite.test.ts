@@ -11,6 +11,23 @@ import * as SqlClient from "effect/sql/SqlClient";
 
 import * as SqlitePersistence from "./Sqlite.ts";
 
+it.effect("applies the persistent-session compatibility schema on startup", () =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const pairingColumns = yield* sql<{
+      readonly name: string;
+    }>`PRAGMA table_info(auth_pairing_links)`;
+    const sessionColumns = yield* sql<{
+      readonly name: string;
+      readonly notnull: number;
+    }>`PRAGMA table_info(auth_sessions)`;
+    assert.isTrue(pairingColumns.some((column) => column.name === "session_expiration"));
+    assert.equal(sessionColumns.find((column) => column.name === "expires_at")?.notnull, 0);
+    assert.isTrue(sessionColumns.some((column) => column.name === "client_surface"));
+    assert.isTrue(sessionColumns.some((column) => column.name === "client_app_version"));
+  }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
+);
+
 it.effect("drops planner statistics a database already has", () => {
   const tempDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-sqlite-stats-"));
   const dbPath = NodePath.join(tempDir, "state.sqlite");
