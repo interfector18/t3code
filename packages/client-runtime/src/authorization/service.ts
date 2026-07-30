@@ -421,6 +421,12 @@ export const make = Effect.gen(function* () {
         Effect.provideService(HttpClient.HttpClient, httpClient),
         Effect.withSpan("environment.authorization.accessToken.exchange"),
       );
+      if (access.expires_in === undefined) {
+        return yield* new ConnectionBlockedError({
+          reason: "configuration",
+          detail: "The environment returned a non-expiring DPoP token, which is not supported.",
+        });
+      }
       const issuedAt = yield* Clock.currentTimeMillis;
       const token = new TokenStore.RemoteDpopAccessToken({
         environmentId: descriptor.environmentId,
@@ -595,6 +601,12 @@ export const make = Effect.gen(function* () {
           Effect.provideService(HttpClient.HttpClient, httpClient),
           Effect.withSpan("environment.authorization.directRenewal"),
         );
+        if (access.expires_in === undefined) {
+          return yield* new ConnectionBlockedError({
+            reason: "configuration",
+            detail: "The environment returned a non-expiring DPoP token, which is not supported.",
+          });
+        }
         const renewed = new DpopConnectionCredential({
           accessToken: access.access_token,
           expiresAtEpochMs: (yield* Clock.currentTimeMillis) + access.expires_in * 1_000,
