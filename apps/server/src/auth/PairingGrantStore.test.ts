@@ -187,6 +187,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("PairingGrantStor
         ),
       );
       expect(current.method).toBe("desktop-bootstrap");
+      expect(current.sessionExpiration).toBe("default");
 
       const staleToken = yield* currentDesktopBootstrapToken(
         "desktop-secret",

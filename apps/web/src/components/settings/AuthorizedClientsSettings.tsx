@@ -1,3 +1,4 @@
+import { formatSessionExpiration } from "./accessSessionExpiration";
 import { AUTH_SCOPE_OPTIONS as PAIRING_SCOPE_OPTIONS } from "@t3tools/shared/authScopeOptions";
 import { PlusIcon, QrCodeIcon } from "lucide-react";
 import { type ReactNode, memo, useId, useState } from "react";
@@ -554,6 +555,9 @@ const ConnectedClientListRow = memo(function ConnectedClientListRow({
             ) : null}
             <AccessScopeSummary scopes={clientSession.scopes} label="Client scopes" />
           </p>
+          <p className="text-xs text-muted-foreground">
+            Expires: {formatSessionExpiration(clientSession.expiresAt, formatAccessTimestamp)}
+          </p>
         </div>
         <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto sm:justify-end">
           {!clientSession.current ? (
@@ -600,6 +604,7 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
   ]);
   const selectedScopes = pairingScopes.filter((scope) => delegatableScopes.includes(scope));
   const [isCreatingPairingLink, setIsCreatingPairingLink] = useState(false);
+  const [neverExpireClientSession, setNeverExpireClientSession] = useState(false);
 
   const handleCreatePairingLink = async () => {
     if (
@@ -612,7 +617,11 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
     const trimmedLabel = pairingLabel.trim();
     const result = await createPairingCredential({
       environmentId,
-      input: { ...(trimmedLabel ? { label: trimmedLabel } : {}), scopes: selectedScopes },
+      input: {
+        ...(trimmedLabel ? { label: trimmedLabel } : {}),
+        scopes: selectedScopes,
+        sessionExpiration: neverExpireClientSession ? "never" : "default",
+      },
     });
     if (result._tag === "Success") {
       onPairingLinkCreated(result.value);
@@ -620,6 +629,7 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
       setPairingScopes(
         AuthStandardClientScopes.filter((scope) => delegatableScopes.includes(scope)),
       );
+      setNeverExpireClientSession(false);
       setDialogOpen(false);
     } else if (!isAtomCommandInterrupted(result)) {
       const error = squashAtomCommandFailure(result);
@@ -666,6 +676,7 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
             setPairingScopes(
               AuthStandardClientScopes.filter((scope) => delegatableScopes.includes(scope)),
             );
+            setNeverExpireClientSession(false);
           }
         }}
       >
@@ -773,6 +784,23 @@ export const AuthorizedClientsHeaderAction = memo(function AuthorizedClientsHead
                 </p>
               ) : null}
             </section>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-input bg-muted/25 px-3 py-2.5">
+              <Checkbox
+                className="mt-0.5"
+                checked={neverExpireClientSession}
+                disabled={isCreatingPairingLink}
+                onCheckedChange={(checked) => setNeverExpireClientSession(checked === true)}
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-medium text-foreground">
+                  Never expire this client session
+                </span>
+                <span className="block text-xs leading-snug text-muted-foreground">
+                  The one-time pairing link still expires after five minutes. The paired client
+                  stays authorized until you revoke it.
+                </span>
+              </span>
+            </label>
           </DialogPanel>
           <DialogFooter variant="bare">
             <Button
