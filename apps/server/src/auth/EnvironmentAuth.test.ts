@@ -15,6 +15,7 @@ import * as ServerConfig from "../config.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as PersistenceErrors from "../persistence/Errors.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import AuthNonExpiringSessions from "../persistence/ManualMigrations/AuthNonExpiringSessions.ts";
 import * as PairingGrantStore from "./PairingGrantStore.ts";
 import * as EnvironmentAuth from "./EnvironmentAuth.ts";
 
@@ -25,6 +26,10 @@ import * as SessionStore from "./SessionStore.ts";
 const TEST_SERVER_PORT = 13_773;
 const isPairingCredentialIssueError = Schema.is(PairingGrantStore.PairingCredentialIssueError);
 const isPersistenceSqlError = Schema.is(PersistenceErrors.PersistenceSqlError);
+
+const layerSqlitePersistenceWithPersistentSessions = Layer.effectDiscard(
+  AuthNonExpiringSessions,
+).pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
 
 const layerServerConfig = (overrides?: Partial<ServerConfig.ServerConfig["Service"]>) =>
   Layer.effect(
@@ -43,7 +48,7 @@ const layerServerConfig = (overrides?: Partial<ServerConfig.ServerConfig["Servic
 
 const layerEnvironmentAuth = (overrides?: Partial<ServerConfig.ServerConfig["Service"]>) =>
   EnvironmentAuth.layer.pipe(
-    Layer.provideMerge(SqlitePersistence.layerMemory),
+    Layer.provideMerge(layerSqlitePersistenceWithPersistentSessions),
     Layer.provide(ServerSecretStore.layer),
     Layer.provide(ServerEnvironment.layerIdentity),
     Layer.provide(layerServerConfig(overrides)),
@@ -403,6 +408,52 @@ it.layer(NodeServices.layer)("EnvironmentAuth.layer", (it) => {
         )
         .pipe(Effect.flip);
       expect(reused._tag).toBe("ServerAuthInvalidCredentialError");
+    }).pipe(Effect.provide(layerEnvironmentAuth())),
+  );
+
+  it.effect("issues a non-expiring session from an explicit permanent pairing link", () =>
+    Effect.gen(function* () {
+      const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+      const pairing = yield* serverAuth.createPairingLink({ sessionExpiration: "never" });
+      const access = yield* serverAuth.exchangeBootstrapCredentialForAccessToken(
+        pairing.credential,
+        undefined,
+        requestMetadata,
+      );
+
+      expect(pairing.sessionExpiration).toBe("never");
+      expect(access.expires_in).toBeUndefined();
+    }).pipe(Effect.provide(layerEnvironmentAuth())),
+  );
+
+  it.effect("replaces a browser session with a permanent, scope-constrained session", () =>
+    Effect.gen(function* () {
+      const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
+      const sessions = yield* SessionStore.SessionStore;
+      const firstPairing = yield* serverAuth.createPairingLink();
+      const first = yield* serverAuth.createBrowserSession(
+        firstPairing.credential,
+        requestMetadata,
+      );
+      const pairing = yield* serverAuth.createPairingLink({
+        scopes: ["orchestration:read"],
+        sessionExpiration: "never",
+      });
+      const replacement = yield* serverAuth.createBrowserSession(
+        pairing.credential,
+        requestMetadata,
+        first.sessionToken,
+      );
+      const verified = yield* serverAuth.authenticateHttpRequest(
+        makeCookieRequest(sessions.cookieName, replacement.sessionToken),
+      );
+
+      expect(replacement.response.expiresAt).toBeNull();
+      expect(verified.expiresAt).toBeNull();
+      expect(verified.scopes).toEqual(["orchestration:read"]);
+      expect((yield* Effect.flip(sessions.verify(first.sessionToken)))._tag).toBe(
+        "SessionTokenRevokedError",
+      );
     }).pipe(Effect.provide(layerEnvironmentAuth())),
   );
 
