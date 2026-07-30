@@ -7,7 +7,11 @@ import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as SqlSchema from "effect/sql/SqlSchema";
 
-import { AuthClientMetadata, AuthEnvironmentScopes } from "@t3tools/contracts";
+import {
+  AuthClientMetadata,
+  AuthEnvironmentScopes,
+  AuthSessionExpiration,
+} from "@t3tools/contracts";
 
 import {
   type AuthPairingLinkRepositoryError,
@@ -33,6 +37,7 @@ export const AuthPairingLinkRecord = Schema.Struct({
   subject: Schema.String,
   label: Schema.NullOr(Schema.String),
   proofKeyThumbprint: Schema.NullOr(Schema.String),
+  sessionExpiration: AuthSessionExpiration,
   createdAt: Schema.DateTimeUtcFromString,
   expiresAt: Schema.DateTimeUtcFromString,
   consumedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
@@ -53,6 +58,7 @@ export const CreateAuthPairingLinkInput = Schema.Struct({
   label: Schema.NullOr(Schema.String),
   proofKeyThumbprint: Schema.NullOr(Schema.String),
   requiresConnectApproval: Schema.optionalKey(Schema.Boolean),
+  sessionExpiration: AuthSessionExpiration,
   createdAt: Schema.DateTimeUtcFromString,
   expiresAt: Schema.DateTimeUtcFromString,
 });
@@ -124,6 +130,7 @@ const AuthPairingLinkRawDbRow = Schema.Struct({
   subject: Schema.Unknown,
   label: Schema.Unknown,
   proofKeyThumbprint: Schema.Unknown,
+  sessionExpiration: Schema.Unknown,
   createdAt: Schema.Unknown,
   expiresAt: Schema.Unknown,
   consumedAt: Schema.Unknown,
@@ -202,6 +209,7 @@ export const make = Effect.gen(function* () {
           label,
           proof_key_thumbprint,
           requires_connect_approval,
+          session_expiration,
           created_at,
           expires_at,
           consumed_at,
@@ -216,6 +224,7 @@ export const make = Effect.gen(function* () {
           ${input.label},
           ${input.proofKeyThumbprint},
           ${input.requiresConnectApproval ? 1 : 0},
+          ${input.sessionExpiration},
           ${input.createdAt},
           ${input.expiresAt},
           NULL,
@@ -277,6 +286,7 @@ export const make = Effect.gen(function* () {
           subject AS "subject",
           label AS "label",
           proof_key_thumbprint AS "proofKeyThumbprint",
+          session_expiration AS "sessionExpiration",
           created_at AS "createdAt",
           expires_at AS "expiresAt",
           consumed_at AS "consumedAt",
@@ -303,6 +313,7 @@ export const make = Effect.gen(function* () {
           subject AS "subject",
           label AS "label",
           proof_key_thumbprint AS "proofKeyThumbprint",
+          session_expiration AS "sessionExpiration",
           created_at AS "createdAt",
           expires_at AS "expiresAt",
           consumed_at AS "consumedAt",
@@ -355,6 +366,7 @@ export const make = Effect.gen(function* () {
           subject AS "subject",
           label AS "label",
           proof_key_thumbprint AS "proofKeyThumbprint",
+          session_expiration AS "sessionExpiration",
           created_at AS "createdAt",
           expires_at AS "expiresAt",
           consumed_at AS "consumedAt",
@@ -379,6 +391,7 @@ export const make = Effect.gen(function* () {
       subject AS "subject",
       label AS "label",
       proof_key_thumbprint AS "proofKeyThumbprint",
+      session_expiration AS "sessionExpiration",
       created_at AS "createdAt",
       expires_at AS "expiresAt",
       consumed_at AS "consumedAt",
