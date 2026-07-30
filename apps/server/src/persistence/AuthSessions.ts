@@ -38,7 +38,7 @@ export const AuthSessionRecord = Schema.Struct({
   method: ServerAuthSessionMethod,
   client: AuthSessionClientMetadataRecord,
   issuedAt: Schema.DateTimeUtcFromString,
-  expiresAt: Schema.DateTimeUtcFromString,
+  expiresAt: Schema.NullOr(Schema.DateTimeUtcFromString),
   lastConnectedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
   revokedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
 });
@@ -51,7 +51,7 @@ export const CreateAuthSessionInput = Schema.Struct({
   method: ServerAuthSessionMethod,
   client: AuthSessionClientMetadataRecord,
   issuedAt: Schema.DateTimeUtcFromString,
-  expiresAt: Schema.DateTimeUtcFromString,
+  expiresAt: Schema.NullOr(Schema.DateTimeUtcFromString),
   proofKeyThumbprint: Schema.optionalKey(Schema.String),
 });
 export type CreateAuthSessionInput = typeof CreateAuthSessionInput.Type;
@@ -160,7 +160,7 @@ const AuthSessionDbRow = Schema.Struct({
   clientOs: Schema.NullOr(Schema.String),
   clientBrowser: Schema.NullOr(Schema.String),
   issuedAt: Schema.DateTimeUtcFromString,
-  expiresAt: Schema.DateTimeUtcFromString,
+  expiresAt: Schema.NullOr(Schema.DateTimeUtcFromString),
   lastConnectedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
   revokedAt: Schema.NullOr(Schema.DateTimeUtcFromString),
 });
@@ -306,7 +306,7 @@ export const make = Effect.gen(function* () {
         }
           AND method = ${session.method}
           AND revoked_at IS NULL
-          AND expires_at > ${revokedAt}
+          AND (expires_at IS NULL OR expires_at > ${revokedAt})
         RETURNING session_id AS "sessionId"
       `,
   });
@@ -333,7 +333,7 @@ export const make = Effect.gen(function* () {
           revoked_at AS "revokedAt"
         FROM auth_sessions
         WHERE revoked_at IS NULL
-          AND (expires_at > ${now} OR ${sql.in("session_id", connectedSessionIds)})
+          AND (expires_at IS NULL OR expires_at > ${now} OR ${sql.in("session_id", connectedSessionIds)})
         ORDER BY issued_at DESC, session_id DESC
       `,
   });
