@@ -185,6 +185,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("PairingGrantStor
         currentDesktopBootstrapToken("desktop-secret", now),
       );
       expect(current.method).toBe("desktop-bootstrap");
+      expect(current.sessionExpiration).toBe("default");
 
       const stale = yield* Effect.flip(
         bootstrapCredentials.consume(
