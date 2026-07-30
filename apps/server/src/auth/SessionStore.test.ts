@@ -18,10 +18,15 @@ import * as ServerConfig from "../config.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import * as AuthNonExpiringSessions from "../persistence/ManualMigrations/AuthNonExpiringSessions.ts";
 import * as SessionStore from "./SessionStore.ts";
 import * as ServerSecretStore from "./ServerSecretStore.ts";
 import { base64UrlDecodeUtf8, base64UrlEncode } from "./utils.ts";
 import * as PayloadSigner from "./PayloadSigner.ts";
+
+const layerSqlitePersistenceWithPersistentSessions = Layer.effectDiscard(
+  AuthNonExpiringSessions.migrate,
+).pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
 
 const layerServerConfig = (overrides?: Partial<ServerConfig.ServerConfig["Service"]>) =>
   Layer.effect(
@@ -45,7 +50,7 @@ const layerSessionStore = (
   environmentId = EnvironmentId.make("test-environment"),
 ) =>
   SessionStore.layer.pipe(
-    Layer.provide(SqlitePersistence.layerMemory),
+    Layer.provideMerge(layerSqlitePersistenceWithPersistentSessions),
     Layer.provide(ServerSecretStore.layer),
     Layer.provide(layerServerEnvironment(environmentId)),
     Layer.provide(layerServerConfig(overrides)),
@@ -273,6 +278,27 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("SessionStore.lay
     }).pipe(Effect.scoped, Effect.provide(Layer.merge(layerSessionStore(), TestClock.layer()))),
   );
 
+  it.effect("keeps a non-expiring connection alive until revoked", () =>
+    Effect.gen(function* () {
+      const sessions = yield* SessionStore.SessionStore;
+      const client = yield* sessions.issue({ subject: "persistent-phone", expiration: "never" });
+      yield* sessions.markConnected(client.sessionId);
+      const invalidated = yield* Deferred.make<void>();
+      const watcher = yield* sessions
+        .awaitInvalidation(client.sessionId)
+        .pipe(
+          Effect.andThen(Deferred.succeed(invalidated, undefined)),
+          Effect.forkScoped({ startImmediately: true }),
+        );
+      yield* TestClock.adjust(Duration.days(365));
+      expect(yield* Deferred.isDone(invalidated)).toBe(false);
+      yield* sessions.revoke(client.sessionId);
+      yield* Fiber.join(watcher);
+      expect(yield* Deferred.isDone(invalidated)).toBe(true);
+      yield* sessions.awaitInvalidation(client.sessionId);
+    }).pipe(Effect.scoped, Effect.provide(Layer.merge(layerSessionStore(), TestClock.layer()))),
+  );
+
   it.effect("keys remote cookies by environment identity instead of state directory", () =>
     Effect.gen(function* () {
       const cookieName = (stateDir: string, environmentId: EnvironmentId) =>
@@ -444,6 +470,11 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("SessionStore.lay
         subject: "desktop-bootstrap",
         method: "browser-session-cookie",
       });
+      const persistent = yield* sessions.issue({
+        subject: "desktop-bootstrap",
+        method: "bearer-access-token",
+        expiration: "never",
+      });
       const [firstBearer, secondBearer] = yield* Effect.all(
         [
           sessions.issue({
@@ -475,6 +506,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("SessionStore.lay
         ),
       ).toHaveLength(1);
       expect(bearerVerification.filter(Option.isSome)).toHaveLength(1);
+      expect(yield* sessions.verify(persistent.token).pipe(Effect.option)).toEqual(Option.none());
     }).pipe(Effect.provide(layerSessionStore())),
   );
 
@@ -566,7 +598,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("SessionStore.lay
       expect(error._tag).toBe("WebSocketSessionExpiredError");
       if (error._tag === "WebSocketSessionExpiredError") {
         expect(error.sessionId).toBe(issued.sessionId);
-        expect(error.expiresAt.epochMilliseconds).toBe(issued.expiresAt.epochMilliseconds);
+        expect(error.expiresAt.epochMilliseconds).toBe(issued.expiresAt!.epochMilliseconds);
         expect(error.observedAt.epochMilliseconds).toBeGreaterThan(
           error.expiresAt.epochMilliseconds,
         );
@@ -580,6 +612,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("SessionStore.lay
       const step = Duration.days(1);
       const issued = yield* sessions.issue({ subject: "owner" });
       const idle = yield* sessions.issue({ subject: "owner" });
+      if (issued.expiresAt === null || idle.expiresAt === null)
+        throw new Error("Expected expiring sessions");
       const millis = (expiresAt: Option.Option<DateTime.Utc>) =>
         Option.getOrNull(Option.map(expiresAt, (value) => value.epochMilliseconds));
       const stored = sessions
@@ -588,7 +622,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("SessionStore.lay
           Effect.map(
             (active) =>
               active.find((entry) => entry.sessionId === issued.sessionId)?.expiresAt
-                .epochMilliseconds,
+                ?.epochMilliseconds,
           ),
         );
 

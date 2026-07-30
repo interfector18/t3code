@@ -274,7 +274,7 @@ it.effect("keeps the expiry the peer answers with, so a used link outlives its f
           Effect.map((link) => (Option.isSome(link) ? link.value.expiresAt.epochMilliseconds : 0)),
         );
       const expiryThere = b.linkedSessions.pipe(
-        Effect.map((sessions) => sessions[0]?.expiresAt.epochMilliseconds),
+        Effect.map((sessions) => sessions[0]?.expiresAt?.epochMilliseconds),
       );
       const linkedAt = linked.linkedAt.epochMilliseconds;
       expect(yield* storedExpiry).toBe(linkedAt + 30 * day);

@@ -181,6 +181,12 @@ export const preparePairingRegistration = Effect.fn(
       clientMetadata: presentation.metadata,
       dpopProof: dpopProof.value,
     }).pipe(Effect.mapError(mapRemoteEnvironmentError));
+    if (access.expires_in === undefined) {
+      return yield* new ConnectionBlockedError({
+        reason: "configuration",
+        detail: "The environment returned a non-expiring DPoP token, which is not supported.",
+      });
+    }
     return new BearerConnectionRegistration({
       ...route,
       credential: new DpopConnectionCredential({
