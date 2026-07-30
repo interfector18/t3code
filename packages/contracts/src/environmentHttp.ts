@@ -377,7 +377,7 @@ export interface EnvironmentSessionPrincipalShape {
   readonly method: ServerAuthSessionMethod;
   readonly scopes: ReadonlySet<AuthEnvironmentScope>;
   readonly proofKeyThumbprint?: string;
-  readonly expiresAt?: DateTime.DateTime;
+  readonly expiresAt?: DateTime.DateTime | null;
 }
 
 export class EnvironmentAuthenticatedPrincipal extends Context.Service<
