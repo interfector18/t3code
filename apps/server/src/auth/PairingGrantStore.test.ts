@@ -187,6 +187,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("PairingGrantStor
         ),
       );
       expect(current.method).toBe("desktop-bootstrap");
+      expect(current.sessionExpiration).toBe("default");
 
       const staleToken = yield* currentDesktopBootstrapToken(
         "desktop-secret",
@@ -221,18 +222,24 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("PairingGrantStor
       // An app approval code sends no update, issued or spent; the next belongs to a plain code.
       const approval = yield* grants.issueOneTimeToken({ mcpApproval: "auto" });
       yield* grants.consume(approval.credential, { mcpApproval: "auto" });
-      for (const input of [{}, { label: "Synthetic phone" }]) {
+      for (const input of [
+        {},
+        { label: "Synthetic phone" },
+        { label: "Persistent phone", sessionExpiration: "never" as const },
+      ]) {
         const issued = yield* grants.issueOneTimeToken(input);
         const change = yield* Queue.take(changes);
         expect(change?.type).toBe("pairingLinkUpserted");
         if (change?.type !== "pairingLinkUpserted")
           throw new Error("Expected a pairing link update");
         expect(change.pairingLink.id).toBe(issued.id);
+        expect(change.pairingLink.sessionExpiration).toBe(input.sessionExpiration ?? "default");
         expect(change.pairingLink).not.toHaveProperty("credential");
         const listed = (yield* grants.listActive()).find((link) => link.id === issued.id);
         expect(listed).toEqual(change.pairingLink);
         const consumed = yield* grants.consume(issued.credential);
         expect(consumed.scopes).toEqual(change.pairingLink.scopes);
+        expect(consumed.sessionExpiration).toBe(change.pairingLink.sessionExpiration);
         expect(yield* Queue.take(changes)).toEqual({ type: "pairingLinkRemoved", id: issued.id });
       }
     }).pipe(Effect.scoped, Effect.provide(layerPairingGrantStore())),

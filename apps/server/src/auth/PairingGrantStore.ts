@@ -9,6 +9,7 @@ import {
   PAIRING_CODE_ALPHABET,
   PAIRING_CODE_LENGTH,
   parseMcpApprovalCode,
+  type AuthSessionExpiration,
   type ServerAuthBootstrapMethod,
   connectDeviceVerificationCode,
 } from "@t3tools/contracts";
@@ -39,6 +40,7 @@ export interface BootstrapGrant {
   readonly subject: string;
   readonly label?: string;
   readonly proofKeyThumbprint?: string;
+  readonly sessionExpiration: AuthSessionExpiration;
   readonly expiresAt: DateTime.DateTime;
 }
 
@@ -227,6 +229,7 @@ export interface IssuedBootstrapCredential {
   readonly credential: string;
   readonly label?: string;
   readonly proofKeyThumbprint?: string;
+  readonly sessionExpiration: AuthSessionExpiration;
   readonly expiresAt: DateTime.Utc;
 }
 
@@ -257,6 +260,7 @@ export class PairingGrantStore extends Context.Service<
       readonly mcpApproval?: AuthMcpClientAccess;
       /** Spendable only after someone trusts `proofKeyThumbprint` as a T3 Connect device. */
       readonly requiresConnectApproval?: boolean;
+      readonly sessionExpiration?: AuthSessionExpiration;
     }) => Effect.Effect<IssuedBootstrapCredential, BootstrapCredentialInternalError>;
     /** A device's open or denied request, reused so retries keep one request and one code. */
     readonly findPendingConnect: (
@@ -326,6 +330,7 @@ type ConsumeResult =
 const DEFAULT_ONE_TIME_TOKEN_TTL_MINUTES = Duration.minutes(5);
 
 const toPairingLink = (row: AuthPairingLinks.AuthPairingLinkRecord): AuthPairingLink => ({
+  sessionExpiration: row.sessionExpiration,
   id: row.id,
   scopes: row.scopes,
   subject: row.subject,
@@ -417,6 +422,7 @@ const make = Effect.gen(function* () {
       method: "desktop-bootstrap",
       scopes: AuthStandardClientScopes,
       subject: "desktop-bootstrap",
+      sessionExpiration: "default",
       expiresAt: DateTime.add(now, {
         milliseconds: Duration.toMillis(DESKTOP_BOOTSTRAP_TTL_HOURS),
       }),
@@ -475,11 +481,13 @@ const make = Effect.gen(function* () {
       (isDevStartupToken ? DEV_STARTUP_TTL_HOURS : DEFAULT_ONE_TIME_TOKEN_TTL_MINUTES);
     const now = yield* DateTime.now;
     const expiresAt = DateTime.add(now, { milliseconds: Duration.toMillis(ttl) });
+    const sessionExpiration = input?.sessionExpiration ?? "default";
     const issued: IssuedBootstrapCredential = {
       id,
       credential,
       ...(input?.label ? { label: input.label } : {}),
       ...(input?.proofKeyThumbprint ? { proofKeyThumbprint: input.proofKeyThumbprint } : {}),
+      sessionExpiration,
       expiresAt,
     };
     const subject = mcpApproval
@@ -495,6 +503,7 @@ const make = Effect.gen(function* () {
         label: input?.label ?? null,
         proofKeyThumbprint: input?.proofKeyThumbprint ?? null,
         ...(input?.requiresConnectApproval ? { requiresConnectApproval: true } : {}),
+        sessionExpiration,
         createdAt: now,
         expiresAt: expiresAt,
       })
@@ -525,6 +534,7 @@ const make = Effect.gen(function* () {
               },
             }
           : {}),
+        sessionExpiration,
       });
     }
     return issued;
@@ -538,6 +548,7 @@ const make = Effect.gen(function* () {
           method: "desktop-bootstrap",
           scopes: AuthStandardClientScopes,
           subject: "desktop-bootstrap",
+          sessionExpiration: "default",
           expiresAt: DateTime.add(now, {
             milliseconds: DESKTOP_BOOTSTRAP_TOKEN_WINDOW_MS,
           }),
@@ -622,6 +633,7 @@ const make = Effect.gen(function* () {
                   ? { proofKeyThumbprint: grant.proofKeyThumbprint }
                   : {}),
                 expiresAt: grant.expiresAt,
+                sessionExpiration: grant.sessionExpiration,
               } satisfies BootstrapGrant,
             },
             next,
@@ -673,6 +685,7 @@ const make = Effect.gen(function* () {
             ? { proofKeyThumbprint: consumed.value.proofKeyThumbprint }
             : {}),
           expiresAt: consumed.value.expiresAt,
+          sessionExpiration: consumed.value.sessionExpiration,
         } satisfies BootstrapGrant;
       }
 
@@ -737,6 +750,7 @@ const make = Effect.gen(function* () {
         ...(link.label ? { label: link.label } : {}),
         proofKeyThumbprint,
         expiresAt: link.expiresAt,
+        sessionExpiration: link.sessionExpiration,
       }));
     },
     Effect.mapError((cause) => new BootstrapCredentialLookupError({ cause })),
