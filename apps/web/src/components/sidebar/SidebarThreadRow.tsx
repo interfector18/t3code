@@ -79,6 +79,7 @@ import {
   resolveSidebarRowAccessibility,
   type SidebarDropVerb,
   resolveSidebarThreadStatus,
+  resolveSidebarVcsStatusMode,
   resolveThreadLastVisitedAt,
   shouldRecedeSidebarThread,
   resolveWorkingStartedAt,
@@ -595,6 +596,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
   const isSelected = useThreadSelectionStore((state) => state.selectedThreadKeys.has(threadKey));
   const openPrLink = useOpenPrLink();
+  const [statusDemanded, setStatusDemanded] = useState(false);
   const runningTerminalIds = useThreadRunningTerminalIds({
     environmentId: thread.environmentId,
     threadId: thread.id,
@@ -616,17 +618,33 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     thread.pullRequests,
     thread.branchPullRequest,
   );
-  const gitStatus = useEnvironmentQuery(
-    leaseLiveStatus && (thread.branch != null || thread.worktreePath !== null) && gitCwd !== null
+  const canLoadGitStatus =
+    (thread.branch != null || thread.worktreePath !== null) && gitCwd !== null;
+  const gitStatusMode = resolveSidebarVcsStatusMode(
+    props.isActive,
+    statusDemanded,
+    canLoadGitStatus,
+  );
+  const liveGitStatus = useEnvironmentQuery(
+    gitStatusMode === "live"
       ? vcsEnvironment.status({
           environmentId: thread.environmentId,
-          input: { cwd: gitCwd, includeRemote: false },
+          input: { cwd: gitCwd!, includeRemote: false },
         })
       : null,
   );
-  const visibleGitStatus = useRetainedValue(
+  const demandedGitStatus = useEnvironmentQuery(
+    gitStatusMode === "lookup"
+      ? vcsEnvironment.getStatus({
+          environmentId: thread.environmentId,
+          input: { cwd: gitCwd! },
+        })
+      : null,
+  );
+  const currentGitStatus = props.isActive ? liveGitStatus.data : demandedGitStatus.data;
+  const gitStatus = useRetainedValue(
     JSON.stringify([thread.environmentId, gitCwd]),
-    gitStatus.data,
+    currentGitStatus,
   );
   const pr = linkedPullRequestStatus?.pr ?? null;
   const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
@@ -711,7 +729,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     effectiveEnvMode: thread.worktreePath === null ? "local" : "worktree",
     activeWorktreePath: thread.worktreePath,
     activeThreadBranch: thread.branch,
-    currentGitBranch: visibleGitStatus?.refName ?? null,
+    currentGitBranch: gitStatus?.refName ?? null,
   });
   const prStatus = prStatusIndicator(pr, linkedPullRequestStatus?.sourceControlProvider);
 
@@ -1106,6 +1124,14 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 onDoubleClick={handleDoubleClick}
                 onKeyDown={handleKeyDown}
                 onContextMenu={handleContextMenu}
+                onMouseEnter={() => setStatusDemanded(true)}
+                onMouseLeave={() => setStatusDemanded(false)}
+                onFocus={() => setStatusDemanded(true)}
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                    setStatusDemanded(false);
+                  }
+                }}
               />
             }
           >
@@ -1265,6 +1291,14 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               onDoubleClick={handleDoubleClick}
               onKeyDown={handleKeyDown}
               onContextMenu={handleContextMenu}
+              onMouseEnter={() => setStatusDemanded(true)}
+              onMouseLeave={() => setStatusDemanded(false)}
+              onFocus={() => setStatusDemanded(true)}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setStatusDemanded(false);
+                }
+              }}
             />
           }
         >
