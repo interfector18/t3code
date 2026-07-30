@@ -105,6 +105,7 @@ const serveTunnel = (
               Effect.succeed({
                 sessionId: AuthSessionId.make("tunnel-test"),
                 subject: "tunnel-test",
+                expiresAt: null,
                 method: "bearer-access-token",
                 scopes: request.url.includes("wsTicket=reader")
                   ? [AuthOrchestrationReadScope]
