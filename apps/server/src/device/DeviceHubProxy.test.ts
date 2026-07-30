@@ -64,6 +64,7 @@ const fixture = (
               ? Effect.fail(authError)
               : Effect.succeed({
                   sessionId: AuthSessionId.make("test"),
+                  expiresAt: null,
                   subject: "test",
                   method: "bearer-access-token",
                   scopes,
