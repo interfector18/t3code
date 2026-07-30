@@ -3294,6 +3294,10 @@ const layerWsRpc = (
               .pipe(Effect.map((cancelled) => ({ cancelled }))),
             { "rpc.aggregate": "vcs" },
           ),
+        [WS_METHODS.vcsGetStatus]: (input) =>
+          observeRpcEffect(WS_METHODS.vcsGetStatus, vcsStatusBroadcaster.getStatus(input), {
+            "rpc.aggregate": "vcs",
+          }),
         [WS_METHODS.vcsRefreshStatus]: (input) =>
           observeRpcEffect(
             WS_METHODS.vcsRefreshStatus,
