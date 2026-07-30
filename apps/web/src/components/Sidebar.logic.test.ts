@@ -39,6 +39,7 @@ import {
   resolveSidebarV2TopStatus,
   resolveThreadLastVisitedAt,
   resolveThreadRowClassName,
+  resolveSidebarVcsStatusMode,
   resolveThreadStatusPill,
   resolveWorkingStartedAt,
   pullRequestMatchesSearchQuery,
@@ -75,6 +76,15 @@ import {
 import { makeThreadFixture, type ThreadFixtureOverrides } from "../test-fixtures";
 
 const localEnvironmentId = EnvironmentId.make("environment-local");
+
+describe("resolveSidebarVcsStatusMode", () => {
+  it("keeps live status exclusive to the active row and uses demand lookup elsewhere", () => {
+    expect(resolveSidebarVcsStatusMode(true, false, true)).toBe("live");
+    expect(resolveSidebarVcsStatusMode(false, true, true)).toBe("lookup");
+    expect(resolveSidebarVcsStatusMode(false, false, true)).toBe("idle");
+    expect(resolveSidebarVcsStatusMode(true, true, false)).toBe("idle");
+  });
+});
 
 describe("resolveSidebarRowAccessibility", () => {
   it.each([
