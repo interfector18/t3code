@@ -15,6 +15,7 @@ it("formats issued pairing credentials with the secret and optional pair URL", (
       credential: "secret-pairing-token",
       scopes: ["orchestration:read"],
       subject: "one-time-token",
+      sessionExpiration: "never",
       createdAt: DateTime.makeUnsafe("2026-04-08T09:00:00.000Z"),
       expiresAt: DateTime.makeUnsafe("2026-04-08T10:00:00.000Z"),
     },
@@ -23,6 +24,7 @@ it("formats issued pairing credentials with the secret and optional pair URL", (
 
   expect(output).toContain("secret-pairing-token");
   expect(output).toContain("https://example.com/pair#token=secret-pairing-token");
+  expect(output).toContain("Client session expiration: Never");
 });
 
 it("formats pairing listings without exposing the secret token", () => {
@@ -33,6 +35,7 @@ it("formats pairing listings without exposing the secret token", () => {
         subject: "one-time-token",
         label: "Phone",
         scopes: ["orchestration:read"],
+        sessionExpiration: "default",
         createdAt: DateTime.makeUnsafe("2026-04-08T09:00:00.000Z"),
         expiresAt: DateTime.makeUnsafe("2026-04-08T10:00:00.000Z"),
       },
@@ -84,4 +87,26 @@ it("formats issued sessions with the bearer token but omits tokens from listings
 
   expect(issuedOutput).toContain("secret-session-token");
   expect(listedOutput).not.toContain("secret-session-token");
+});
+
+it("formats non-expiring sessions as Never", () => {
+  const listedOutput = formatSessionList(
+    [
+      {
+        sessionId: "session-never" as never,
+        method: "bearer-access-token",
+        scopes: ["orchestration:read"],
+        subject: "persistent-phone",
+        client: { label: "Phone", deviceType: "mobile" },
+        connected: false,
+        current: false,
+        issuedAt: DateTime.makeUnsafe("2026-04-08T09:00:00.000Z"),
+        expiresAt: null,
+        lastConnectedAt: null,
+      },
+    ],
+    { json: false },
+  );
+
+  expect(listedOutput).toContain("expires: Never");
 });

@@ -82,12 +82,18 @@ const tokenOnlyFlag = Flag.Boolean("token-only").pipe(
   Flag.withDefault(false),
 );
 
+const neverExpiresFlag = Flag.Boolean("never-expires").pipe(
+  Flag.withDescription("Make the client session created from this pairing token never expire."),
+  Flag.withDefault(false),
+);
+
 const pairingCreateCommand = Command.make("create", {
   ...authLocationFlags,
   scopes: authScopesFlag(AuthStandardClientScopes),
   ttl: ttlFlag,
   label: labelFlag,
   baseUrl: baseUrlFlag,
+  neverExpires: neverExpiresFlag,
   json: jsonFlag,
 }).pipe(
   Command.withDescription("Issue a new client pairing token."),
@@ -99,6 +105,7 @@ const pairingCreateCommand = Command.make("create", {
           const issued = yield* environmentAuth.createPairingLink({
             scopes: flags.scopes,
             subject: "one-time-token",
+            sessionExpiration: flags.neverExpires ? "never" : "default",
             ...(Option.isSome(flags.ttl) ? { ttl: flags.ttl.value } : {}),
             ...(Option.isSome(flags.label) ? { label: flags.label.value } : {}),
           });
