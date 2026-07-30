@@ -8,6 +8,7 @@ import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
 import { runMigrations } from "./Migrations.ts";
 import { initializeV2Database } from "./initializeV2Database.ts";
 import * as ServerConfig from "../config.ts";
+import AuthNonExpiringSessions from "./ManualMigrations/AuthNonExpiringSessions.ts";
 
 export const WAL_SIZE_LIMIT_BYTES = 32 * 1024 * 1024;
 
@@ -37,6 +38,7 @@ const layerSetup = Layer.effectDiscard(
     // largest size until the last connection closes.
     yield* sql.unsafe(`PRAGMA journal_size_limit = ${WAL_SIZE_LIMIT_BYTES};`);
     yield* runMigrations();
+    yield* AuthNonExpiringSessions;
     // No planner statistics. Collecting them reads every page of the large
     // tables, and stats taken while a table was small make the planner scan it
     // once it grows. Without them SQLite assumes large tables and uses indexes;
