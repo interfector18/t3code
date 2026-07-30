@@ -464,6 +464,13 @@ const loadSecondaryConnectionRegistration = Effect.fn(
     scopes: AuthStandardClientScopes,
     clientMetadata: currentClientMetadata(),
   }).pipe(Effect.mapError(mapRemoteEnvironmentError));
+  if (access.expires_in === undefined) {
+    return yield* new ConnectionBlockedError({
+      reason: "configuration",
+      detail:
+        "The desktop backend returned a non-expiring bootstrap token, which is not supported.",
+    });
+  }
   // Desktop operations need the pool backend id to reach the owning instance; RPC uses the environment id.
   const connectionId = desktopLocalConnectionId(entry.id);
   const label = entry.label || descriptor.label;
