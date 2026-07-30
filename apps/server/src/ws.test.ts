@@ -991,6 +991,7 @@ it.effect.each([
           layerWsRpc(
             {
               sessionId: AuthSessionId.make("config-test"),
+              expiresAt: null,
               subject: "config-test",
               method: "browser-session-cookie",
               scopes: [],
@@ -1233,6 +1234,7 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
         layerWsRpc(
           {
             sessionId: AuthSessionId.make("config-test"),
+            expiresAt: null,
             subject: "config-test",
             method: "browser-session-cookie",
             scopes: [],
@@ -1395,6 +1397,7 @@ it.effect("a publish whose push fails still refreshes the new remote", () =>
         layerWsRpc(
           {
             sessionId: AuthSessionId.make("publish-test"),
+            expiresAt: null,
             subject: "publish-test",
             method: "browser-session-cookie",
             scopes: [AuthSourceControlWriteScope],
