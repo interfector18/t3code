@@ -879,6 +879,7 @@ it.effect.each([
           layerWsRpc(
             {
               sessionId: AuthSessionId.make("config-test"),
+              expiresAt: null,
               subject: "config-test",
               method: "browser-session-cookie",
               scopes: [],
@@ -1097,6 +1098,7 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
         layerWsRpc(
           {
             sessionId: AuthSessionId.make("config-test"),
+            expiresAt: null,
             subject: "config-test",
             method: "browser-session-cookie",
             scopes: [],

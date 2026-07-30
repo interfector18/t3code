@@ -121,7 +121,7 @@ export interface ServerClientSessionRecord {
   readonly method: ServerAuthSessionMethod;
   readonly client: AuthClientMetadata;
   readonly issuedAt: string;
-  readonly expiresAt: string;
+  readonly expiresAt: string | null;
   readonly lastConnectedAt: string | null;
   readonly connected: boolean;
   readonly current: boolean;
@@ -350,6 +350,7 @@ export async function submitServerAuthCredential(credential: string): Promise<vo
 export async function createServerPairingCredential(input?: {
   readonly label?: string;
   readonly scopes?: ReadonlyArray<AuthGrantScope>;
+  readonly sessionExpiration?: "default" | "never";
 }): Promise<AuthPairingCredentialResult> {
   const trimmedLabel = input?.label?.trim();
   try {
@@ -361,6 +362,7 @@ export async function createServerPairingCredential(input?: {
             payload: {
               ...(trimmedLabel ? { label: trimmedLabel } : {}),
               ...(input?.scopes ? { scopes: input.scopes } : {}),
+              ...(input?.sessionExpiration ? { sessionExpiration: input.sessionExpiration } : {}),
             },
           }),
         ),
