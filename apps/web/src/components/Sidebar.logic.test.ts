@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
 import {
+  resolveSidebarVcsStatusMode,
   archiveSelectedThreadEntries,
   deleteSelectedThreadEntries,
   getFallbackThreadIdAfterDelete,
@@ -46,6 +47,15 @@ import {
 import { makeThreadFixture, type ThreadFixtureOverrides } from "../test-fixtures";
 
 const localEnvironmentId = EnvironmentId.make("environment-local");
+
+describe("resolveSidebarVcsStatusMode", () => {
+  it("keeps live status exclusive to the active row and uses demand lookup elsewhere", () => {
+    expect(resolveSidebarVcsStatusMode(true, false, true)).toBe("live");
+    expect(resolveSidebarVcsStatusMode(false, true, true)).toBe("lookup");
+    expect(resolveSidebarVcsStatusMode(false, false, true)).toBe("idle");
+    expect(resolveSidebarVcsStatusMode(true, true, false)).toBe("idle");
+  });
+});
 
 describe("deleteSelectedThreadEntries", () => {
   const entries = [{ threadKey: "one" }, { threadKey: "two" }, { threadKey: "three" }] as const;
