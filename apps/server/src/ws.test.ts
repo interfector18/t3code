@@ -939,6 +939,7 @@ it.live.each([
               sessionId: AuthSessionId.make("compression-test"),
               subject,
               method: "bearer-access-token",
+              expiresAt: null,
               scopes: [],
             }),
         }),
@@ -1144,6 +1145,7 @@ it.effect.each([
           layerWsRpc(
             {
               sessionId: AuthSessionId.make("config-test"),
+              expiresAt: null,
               subject: "config-test",
               method: "browser-session-cookie",
               scopes: [],
@@ -1299,6 +1301,7 @@ it.effect("access changes made while the snapshot loads reach the client after i
         layerWsRpc(
           {
             sessionId: AuthSessionId.make("current"),
+            expiresAt: null,
             subject: "current",
             method: "browser-session-cookie",
             scopes: [],
@@ -1515,6 +1518,7 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
         layerWsRpc(
           {
             sessionId: AuthSessionId.make("config-test"),
+            expiresAt: null,
             subject: "config-test",
             method: "browser-session-cookie",
             scopes: [],
@@ -1876,6 +1880,7 @@ it.effect("a missing thread worktree gets its project's skills in the cwd snapsh
         layerWsRpc(
           {
             sessionId: AuthSessionId.make("worktree-skills-test"),
+            expiresAt: null,
             subject: "worktree-skills-test",
             method: "browser-session-cookie",
             scopes: [],
@@ -1955,6 +1960,7 @@ it.effect("a git action that fails partway still refreshes the repository status
         layerWsRpc(
           {
             sessionId: AuthSessionId.make("git-test"),
+            expiresAt: null,
             subject: "git-test",
             method: "browser-session-cookie",
             scopes: [AuthSourceControlWriteScope],
@@ -2035,6 +2041,7 @@ it.effect("a publish whose push fails still refreshes the new remote", () =>
         layerWsRpc(
           {
             sessionId: AuthSessionId.make("publish-test"),
+            expiresAt: null,
             subject: "publish-test",
             method: "browser-session-cookie",
             scopes: [AuthSourceControlWriteScope],
@@ -2568,6 +2575,7 @@ it.effect("ACP session RPCs list a thread missing its history and repair it on i
         layerWsRpc(
           {
             sessionId: AuthSessionId.make("acp-test"),
+            expiresAt: null,
             subject: "acp-test",
             method: "browser-session-cookie",
             scopes: [],
