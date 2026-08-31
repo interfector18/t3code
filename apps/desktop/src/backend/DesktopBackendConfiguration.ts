@@ -575,6 +575,9 @@ const resolvePrimaryStartConfig = Effect.fn("desktop.backendConfiguration.resolv
         T3CODE_DESKTOP_SHELL_DISCOVERY_PENDING: "1",
         T3CODE_CLI_PATH: Option.getOrUndefined(input.cliPath),
         [DESKTOP_HOST_SCOPE_ENV]: input.hostScope,
+        ...(environment.platform === "linux" && Option.isSome(environment.appImagePath)
+          ? { T3CODE_TRACE_MIN_LEVEL: "None" }
+          : {}),
       },
       extendEnv: true,
       bootstrap,
