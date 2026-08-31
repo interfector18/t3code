@@ -592,6 +592,9 @@ const resolvePrimaryStartConfig = Effect.fn("desktop.backendConfiguration.resolv
       env: {
         ...backendChildEnvPatch(),
         ELECTRON_RUN_AS_NODE: "1",
+        ...(environment.platform === "linux" && Option.isSome(environment.appImagePath)
+          ? { T3CODE_TRACE_MIN_LEVEL: "None" }
+          : {}),
       },
       // Primary wants process.env (PATH, dev-runner's T3CODE_HOME, etc.).
       extendEnv: true,
