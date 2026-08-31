@@ -599,6 +599,9 @@ const resolvePrimaryStartConfig = Effect.fn("desktop.backendConfiguration.resolv
         ELECTRON_RUN_AS_NODE: "1",
         // The server names this launcher in commands it asks a person to run.
         T3CODE_CLI_PATH: Option.getOrUndefined(input.cliPath),
+        ...(environment.platform === "linux" && Option.isSome(environment.appImagePath)
+          ? { T3CODE_TRACE_MIN_LEVEL: "None" }
+          : {}),
       },
       // Primary wants process.env (PATH, dev-runner's T3CODE_HOME, etc.).
       extendEnv: true,
