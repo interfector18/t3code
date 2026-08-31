@@ -67,6 +67,7 @@ function layerEnvironment(
     readonly otlpTracesUrl?: string;
     readonly otlpMetricsUrl?: string;
     readonly otlpLogsUrl?: string;
+    readonly appImagePath?: string;
   },
 ) {
   return DesktopEnvironment.layer({
@@ -93,6 +94,7 @@ function layerEnvironment(
           T3CODE_OTLP_TRACES_URL: options?.otlpTracesUrl,
           T3CODE_OTLP_METRICS_URL: options?.otlpMetricsUrl,
           T3CODE_OTLP_LOGS_URL: options?.otlpLogsUrl,
+          APPIMAGE: options?.appImagePath,
         }),
       ),
     ),
@@ -319,6 +321,37 @@ describe("DesktopBackendConfiguration", () => {
     }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
   );
 
+  it.effect("disables local server tracing in the packaged Linux AppImage", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const baseDir = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "t3-desktop-backend-config-test-",
+      });
+
+      const config = yield* Effect.gen(function* () {
+        const configuration = yield* DesktopBackendConfiguration.DesktopBackendConfiguration;
+        return yield* configuration.resolvePrimary;
+      }).pipe(
+        Effect.provide(
+          layerBackendConfiguration().pipe(
+            Layer.provideMerge(layerServerExposure),
+            Layer.provideMerge(DesktopAppSettings.layerTest()),
+            Layer.provideMerge(DesktopWslEnvironment.layerTest()),
+            Layer.provideMerge(DesktopWslServerTree.layerTest()),
+            Layer.provideMerge(
+              layerEnvironment(baseDir, {
+                platform: "linux",
+                isPackaged: true,
+                appImagePath: "/opt/T3-Code.AppImage",
+              }),
+            ),
+          ),
+        ),
+      );
+
+      assert.equal(config.env.T3CODE_TRACE_MIN_LEVEL, "None");
+    }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
+  );
   it.effect("resolveWsl pins a default-tracking run to the concrete default distro", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
