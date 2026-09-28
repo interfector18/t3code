@@ -26,11 +26,8 @@ import {
   useAtomValueWhileVisible,
   useHomeRouteVisible,
 } from "./home-route-visibility";
-import {
-  buildHomeProjectScopes,
-  resolveHomeProjectFilterScope,
-  sortHomeProjectScopes,
-} from "./homeThreadList";
+import { buildHomeProjectScopes, sortHomeProjectScopes } from "./homeThreadList";
+import { useHomeProjectFilter } from "./use-home-project-filter";
 import { usePendingTaskListActions } from "./usePendingTaskListActions";
 import { useThreadListActions } from "./useThreadListActions";
 import { useWorkspaceTabs } from "../layout/workspace/WorkspaceTabsContext";
@@ -114,7 +111,7 @@ export function HomeRouteScreen() {
   const {
     options: listOptions,
     setSelectedEnvironmentId,
-    setSelectedProjectKey,
+    setSelectedProjectKeys,
   } = useHomeListOptions(availableEnvironmentIds);
   const selectedEnvironmentId = listOptions.selectedEnvironmentId;
   const projectScopes = useMemo(
@@ -141,8 +138,12 @@ export function HomeRouteScreen() {
       })),
     [projectScopes, threads],
   );
-  const selectedProjectKey =
-    resolveHomeProjectFilterScope(projectScopes, projects, listOptions)?.key ?? null;
+  const { selectedProjectKeys, onProjectChange } = useHomeProjectFilter(
+    projectFilterOptions,
+    projects,
+    listOptions,
+    setSelectedProjectKeys,
+  );
 
   if (layout.usesSplitView && !nativePrimaryColumn) {
     return (
@@ -167,14 +168,14 @@ export function HomeRouteScreen() {
             accessibilityLabel: "Search threads",
           }}
           filter={{
-            customized: selectedEnvironmentId !== null || selectedProjectKey !== null,
+            customized: selectedEnvironmentId !== null || selectedProjectKeys.length > 0,
             items: buildHomeListFilterMenuItems({
               environments,
               projects: projectFilterOptions,
               selectedEnvironmentId,
-              selectedProjectKey,
+              selectedProjectKeys,
               onEnvironmentChange: setSelectedEnvironmentId,
-              onProjectChange: setSelectedProjectKey,
+              onProjectChange,
             }),
           }}
         />
@@ -196,7 +197,7 @@ export function HomeRouteScreen() {
           onRenameThread={renameThread}
           onRegenerateThreadTitle={regenerateThreadTitle}
           onEnvironmentChange={setSelectedEnvironmentId}
-          onProjectChange={setSelectedProjectKey}
+          onProjectChange={onProjectChange}
           onOpenSettings={() => selectTab("settings")}
           onSearchQueryChange={setSearchQuery}
           onSelectThread={handleSelectThread}
@@ -221,7 +222,7 @@ export function HomeRouteScreen() {
           savedConnectionsById={savedConnectionsById}
           searchQuery={searchQuery}
           selectedEnvironmentId={selectedEnvironmentId}
-          selectedProjectKey={selectedProjectKey}
+          selectedProjectKeys={selectedProjectKeys}
           threads={threads}
           visible={visible}
         />
