@@ -1,6 +1,7 @@
 import { useActiveNewTask } from "../../state/active-new-task";
 import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
+import { resolveHomeProjectFilter } from "./home-project-filter";
 import type { ThreadMoveDestination } from "../threads/threadOrder";
 import { computeThreadMoveAvailability } from "../threads/threadOrder";
 import type { LegendListRef } from "@legendapp/list/react-native";
@@ -81,11 +82,7 @@ import {
 } from "../threads/threadListV2";
 import { useThreadListV2ShelfPreferences } from "../threads/use-thread-list-v2-shelf-preferences";
 import type { HomeListFilterMenuEnvironment } from "./home-list-filter-menu";
-import {
-  buildHomeProjectScopes,
-  findHomeProjectScope,
-  type HomeProjectSortOrder,
-} from "./homeThreadList";
+import { buildHomeProjectScopes, type HomeProjectSortOrder } from "./homeThreadList";
 import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useFabScroll } from "./FabScrollContext";
@@ -103,7 +100,7 @@ interface HomeScreenProps {
   >;
   readonly searchQuery: string;
   readonly selectedEnvironmentId: EnvironmentId | null;
-  readonly selectedProjectKey: string | null;
+  readonly selectedProjectKeys: readonly string[];
   readonly projectSortOrder: HomeProjectSortOrder;
   readonly projectGroupingMode: SidebarProjectGroupingMode;
   readonly onSearchQueryChange: (query: string) => void;
@@ -402,8 +399,7 @@ export function HomeScreen(props: HomeScreenProps) {
     return map;
   })();
 
-  const v2ProjectScopeKey = props.selectedProjectKey;
-  const v2ScopedProjectGroup = findHomeProjectScope(projectScopes, v2ProjectScopeKey);
+  const v2ProjectFilter = resolveHomeProjectFilter(projectScopes, props.selectedProjectKeys);
   const v2ProjectTitleByProjectKey = new Map(
     projectScopes.flatMap((scope) =>
       scope.projectRefs.map(
@@ -413,10 +409,10 @@ export function HomeScreen(props: HomeScreenProps) {
     ),
   );
   const v2ScopedProjectKeys =
-    v2ScopedProjectGroup === null
+    v2ProjectFilter.projectRefs === null
       ? null
       : new Set(
-          v2ScopedProjectGroup.projectRefs.map((projectRef) =>
+          v2ProjectFilter.projectRefs.map((projectRef) =>
             scopedProjectKey(projectRef.environmentId, projectRef.projectId),
           ),
         );
@@ -434,7 +430,7 @@ export function HomeScreen(props: HomeScreenProps) {
   const [settledVisibleCount, setSettledVisibleCount] = useState(
     THREAD_LIST_V2_SETTLED_INITIAL_COUNT,
   );
-  const settledResetKey = `${props.selectedEnvironmentId ?? "all"}:${v2ProjectScopeKey ?? "all"}:${props.searchQuery.trim()}`;
+  const settledResetKey = `${props.selectedEnvironmentId ?? "all"}:${JSON.stringify(props.selectedProjectKeys)}:${props.searchQuery.trim()}`;
   const [lastSettledResetKey, setLastSettledResetKey] = useState(settledResetKey);
   if (lastSettledResetKey !== settledResetKey) {
     setLastSettledResetKey(settledResetKey);
@@ -509,7 +505,7 @@ export function HomeScreen(props: HomeScreenProps) {
       pendingOrder,
       threads: props.threads.filter((thread) => thread.archivedAt === null),
       environmentId: props.selectedEnvironmentId,
-      projectRefs: v2ScopedProjectGroup === null ? null : v2ScopedProjectGroup.projectRefs,
+      projectRefs: v2ProjectFilter.projectRefs,
       searchQuery: props.searchQuery,
       matchedThreadKeys,
       settlementEnvironmentIds,
@@ -797,7 +793,7 @@ export function HomeScreen(props: HomeScreenProps) {
           environments={props.environments}
           projects={projectScopes.map((scope) => ({ key: scope.key, label: scope.title }))}
           selectedEnvironmentId={props.selectedEnvironmentId}
-          selectedProjectKey={props.selectedProjectKey}
+          selectedProjectKeys={props.selectedProjectKeys}
           onEnvironmentChange={props.onEnvironmentChange}
           onProjectChange={props.onProjectChange}
         />
@@ -812,9 +808,9 @@ export function HomeScreen(props: HomeScreenProps) {
         detail={`No threads matching "${props.searchQuery}".`}
         variant={Platform.OS === "android" ? "plain" : undefined}
       />
-    ) : v2ScopedProjectGroup !== null ? (
+    ) : v2ProjectFilter.title !== null ? (
       <EmptyState
-        title={`No threads in ${v2ScopedProjectGroup.title}`}
+        title={`No threads in ${v2ProjectFilter.title}`}
         detail="Choose another project or create a new task."
         variant={Platform.OS === "android" ? "plain" : undefined}
       />

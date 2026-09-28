@@ -19,7 +19,7 @@ import type { HomeProjectSortOrder } from "./homeThreadList";
 
 export interface HomeListOptions {
   readonly selectedEnvironmentId: EnvironmentId | null;
-  readonly selectedProjectKey: string | null;
+  readonly selectedProjectKeys: readonly string[];
   readonly projectSortOrder: HomeProjectSortOrder;
 }
 
@@ -30,7 +30,7 @@ export interface ResolvedHomeListOptions extends HomeListOptions {
 function defaultHomeListOptions(filters?: ThreadListFilters): HomeListOptions {
   return {
     selectedEnvironmentId: filters?.environmentId ?? null,
-    selectedProjectKey: filters?.projectKey ?? null,
+    selectedProjectKeys: filters?.projectKeys ?? (filters?.projectKey ? [filters.projectKey] : []),
     projectSortOrder:
       DEFAULT_SIDEBAR_PROJECT_SORT_ORDER === "manual"
         ? "updated_at"
@@ -57,16 +57,19 @@ export function HomeListOptionsProvider({
   const [options, setOptions] = useState(() => defaultHomeListOptions(savedFilters));
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   const saved = useRef(savedFilters);
-  const { selectedEnvironmentId: environmentId, selectedProjectKey: projectKey } = options;
+  const { selectedEnvironmentId: environmentId, selectedProjectKeys: projectKeys } = options;
   useEffect(() => {
+    const savedKeys =
+      saved.current?.projectKeys ?? (saved.current?.projectKey ? [saved.current.projectKey] : []);
     if (
       (saved.current?.environmentId ?? null) === environmentId &&
-      (saved.current?.projectKey ?? null) === projectKey
+      savedKeys.length === projectKeys.length &&
+      savedKeys.every((key, index) => key === projectKeys[index])
     )
       return;
-    saved.current = { environmentId, projectKey };
+    saved.current = { environmentId, projectKey: projectKeys[0] ?? null, projectKeys };
     savePreferences({ threadListFilters: saved.current });
-  }, [environmentId, projectKey, savePreferences]);
+  }, [environmentId, projectKeys, savePreferences]);
   const value = { options, setOptions, projectGroupingMode };
   return createElement(HomeListOptionsContext, { value }, children);
 }
@@ -93,8 +96,11 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
   const setSelectedEnvironmentId = (value: EnvironmentId | null) => {
     setOptions((current) => ({ ...current, selectedEnvironmentId: value }));
   };
-  const setSelectedProjectKey = (value: string | null) => {
-    setOptions((current) => ({ ...current, selectedProjectKey: value }));
+  const setSelectedProjectKeys = (value: SetStateAction<readonly string[]>) => {
+    setOptions((current) => ({
+      ...current,
+      selectedProjectKeys: typeof value === "function" ? value(current.selectedProjectKeys) : value,
+    }));
   };
   const setProjectSortOrder = (value: HomeProjectSortOrder) => {
     setOptions((current) => ({ ...current, projectSortOrder: value }));
@@ -102,7 +108,7 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
   return {
     options: resolvedOptions,
     setSelectedEnvironmentId,
-    setSelectedProjectKey,
+    setSelectedProjectKeys,
     setProjectSortOrder,
   } as const;
 }
