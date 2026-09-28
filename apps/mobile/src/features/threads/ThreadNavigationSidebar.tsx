@@ -1,6 +1,5 @@
 import { ThreadUndoNotice } from "../home/ThreadUndoNotice";
 import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
-import { resolveScratchProjectScopeKey } from "@t3tools/client-runtime/state/project-grouping";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { computeThreadMoveAvailability } from "./threadOrder";
 import type {
@@ -43,6 +42,8 @@ import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
 import { useHomeListOptions } from "../home/home-list-options";
 import { buildHomeListFilterMenu } from "../home/home-list-filter-menu";
 import { buildHomeProjectScopes } from "../home/homeThreadList";
+import { resolveHomeProjectFilter } from "../home/home-project-filter";
+import { useHomeProjectFilter } from "../home/use-home-project-filter";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "../home/thread-swipe-actions";
 import { usePendingTaskListActions } from "../home/usePendingTaskListActions";
 import { useThreadListActions } from "../home/useThreadListActions";
@@ -167,7 +168,7 @@ function ThreadNavigationSidebarPane(
   const availableEnvironmentIds = new Set(
     environments.map((environment) => environment.environmentId),
   );
-  const { options, setSelectedEnvironmentId, setSelectedProjectKey } =
+  const { options, setSelectedEnvironmentId, setSelectedProjectKeys } =
     useHomeListOptions(availableEnvironmentIds);
   const searchEnvironmentIds =
     options.selectedEnvironmentId === null
@@ -194,16 +195,6 @@ function ThreadNavigationSidebarPane(
     return matches;
   }, [threadSearch.matches]);
   const matchedThreadKeys = new Set(threadSearch.matches.map(threadSearchMatchKey));
-  const projectScopeKey = options.selectedProjectKey;
-  const resolvedProjectKey = resolveScratchProjectScopeKey(projectScopeKey, projects, {
-    sidebarProjectGroupingMode: options.projectGroupingMode,
-    sidebarProjectGroupingOverrides: {},
-  });
-  useEffect(() => {
-    if (resolvedProjectKey !== projectScopeKey) {
-      setSelectedProjectKey(resolvedProjectKey);
-    }
-  }, [projectScopeKey, resolvedProjectKey, setSelectedProjectKey]);
   const projectScopes = useMemo(
     () =>
       buildHomeProjectScopes({
@@ -232,14 +223,18 @@ function ThreadNavigationSidebarPane(
       ),
     [projectScopes],
   );
-  const selectedProjectScope =
-    projectScopes.find((scope) => scope.key === resolvedProjectKey) ?? null;
-  const selectedProjectKey = selectedProjectScope?.key ?? null;
+  const { selectedProjectKeys, onProjectChange } = useHomeProjectFilter(
+    projectFilterOptions,
+    projects,
+    options,
+    setSelectedProjectKeys,
+  );
+  const selectedProjectFilter = resolveHomeProjectFilter(projectScopes, selectedProjectKeys);
   const selectedProjectRefs =
-    selectedProjectScope === null
+    selectedProjectFilter.projectRefs === null
       ? null
       : new Set(
-          selectedProjectScope.projectRefs.map((projectRef) =>
+          selectedProjectFilter.projectRefs.map((projectRef) =>
             scopedProjectKey(projectRef.environmentId, projectRef.projectId),
           ),
         );
@@ -254,7 +249,7 @@ function ThreadNavigationSidebarPane(
   const [settledVisibleCount, setSettledVisibleCount] = useState(
     THREAD_LIST_V2_SETTLED_INITIAL_COUNT,
   );
-  const settledResetKey = `${options.selectedEnvironmentId ?? "all"}:${selectedProjectKey ?? "all"}:${props.searchQuery.trim()}`;
+  const settledResetKey = `${options.selectedEnvironmentId ?? "all"}:${JSON.stringify(selectedProjectKeys)}:${props.searchQuery.trim()}`;
   const [lastSettledResetKey, setLastSettledResetKey] = useState(settledResetKey);
   if (lastSettledResetKey !== settledResetKey) {
     setLastSettledResetKey(settledResetKey);
@@ -329,7 +324,7 @@ function ThreadNavigationSidebarPane(
       pendingOrder,
       threads: threads.filter((thread) => thread.archivedAt === null),
       environmentId: options.selectedEnvironmentId,
-      projectRefs: selectedProjectScope === null ? null : selectedProjectScope.projectRefs,
+      projectRefs: selectedProjectFilter.projectRefs,
       searchQuery: props.searchQuery,
       matchedThreadKeys,
       settlementEnvironmentIds,
@@ -432,12 +427,14 @@ function ThreadNavigationSidebarPane(
                 id: "project:all",
                 title: "All projects",
                 subtitle: "Show threads from every project",
-                state: selectedProjectKey === null ? "on" : "off",
+                state: selectedProjectKeys.length === 0 ? "on" : "off",
               },
               ...projectFilterOptions.map((project) => ({
                 id: `project:${project.key}`,
                 title: project.label,
-                state: selectedProjectKey === project.key ? ("on" as const) : ("off" as const),
+                state: selectedProjectKeys.includes(project.key)
+                  ? ("on" as const)
+                  : ("off" as const),
               })),
             ],
           },
@@ -461,13 +458,13 @@ function ThreadNavigationSidebarPane(
       return;
     }
     if (event === "project:all") {
-      setSelectedProjectKey(null);
+      onProjectChange(null);
       return;
     }
     if (event.startsWith("project:")) {
       const projectKey = event.slice("project:".length);
       if (projectFilterOptions.some((project) => project.key === projectKey)) {
-        setSelectedProjectKey(projectKey);
+        onProjectChange(projectKey);
       }
       return;
     }
@@ -695,7 +692,7 @@ function ThreadNavigationSidebarPane(
         );
     }
   };
-  const filterCustomized = options.selectedEnvironmentId !== null || selectedProjectKey !== null;
+  const filterCustomized = options.selectedEnvironmentId !== null || selectedProjectKeys.length > 0;
   const filterIcon = filterCustomized
     ? "line.3.horizontal.decrease.circle.fill"
     : "line.3.horizontal.decrease.circle";
@@ -703,9 +700,9 @@ function ThreadNavigationSidebarPane(
     environments,
     projects: projectFilterOptions,
     selectedEnvironmentId: options.selectedEnvironmentId,
-    selectedProjectKey,
+    selectedProjectKeys,
     onEnvironmentChange: setSelectedEnvironmentId,
-    onProjectChange: setSelectedProjectKey,
+    onProjectChange,
   });
   const nativeHeaderItems = createSidebarHeaderItems({
     filterIcon,
@@ -728,8 +725,8 @@ function ThreadNavigationSidebarPane(
             ? threadSearch.isPending
               ? "Searching thread messages…"
               : "No matching threads"
-            : selectedProjectScope !== null
-              ? `No threads in ${selectedProjectScope.title}`
+            : selectedProjectFilter.title !== null
+              ? `No threads in ${selectedProjectFilter.title}`
               : "No threads yet"}
     </Text>
   );
