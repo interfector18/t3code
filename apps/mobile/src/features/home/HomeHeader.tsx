@@ -44,7 +44,7 @@ export function HomeHeader(props: HomeHeaderProps) {
   );
   const iconColor = useUniwindTheme()["--color-icon"];
   const hasCustomListOptions =
-    props.selectedEnvironmentId !== null || props.selectedProjectKey !== null;
+    props.selectedEnvironmentId !== null || props.selectedProjectKeys.length > 0;
   const focusSearch = useCallback(() => {
     if (primaryColumn && !panes.primarySidebarVisible) {
       focusAfterReveal.current = true;
@@ -196,7 +196,7 @@ export function HomeHeader(props: HomeHeaderProps) {
               <Toolbar.Menu title="Project">
                 <Toolbar.Label>Project</Toolbar.Label>
                 <Toolbar.MenuAction
-                  isOn={props.selectedProjectKey === null}
+                  isOn={props.selectedProjectKeys.length === 0}
                   onPress={() => props.onProjectChange(null)}
                   subtitle="Show threads from every project"
                 >
@@ -205,7 +205,7 @@ export function HomeHeader(props: HomeHeaderProps) {
                 {props.projects.map((project) => (
                   <Toolbar.MenuAction
                     key={project.key}
-                    isOn={props.selectedProjectKey === project.key}
+                    isOn={props.selectedProjectKeys.includes(project.key)}
                     onPress={() => props.onProjectChange(project.key)}
                   >
                     <Toolbar.Label>{project.label}</Toolbar.Label>
