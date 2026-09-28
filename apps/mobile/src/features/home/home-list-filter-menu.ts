@@ -33,7 +33,7 @@ export function buildHomeListFilterMenu(props: {
   readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
   readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
   readonly selectedEnvironmentId: EnvironmentId | null;
-  readonly selectedProjectKey: string | null;
+  readonly selectedProjectKeys: readonly string[];
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
   readonly onProjectChange: (projectKey: string | null) => void;
 }): HomeListFilterMenu {
@@ -71,13 +71,15 @@ export function buildHomeListFilterMenu(props: {
           type: "action",
           title: "All projects",
           subtitle: "Show threads from every project",
-          state: props.selectedProjectKey === null ? "on" : "off",
+          state: props.selectedProjectKeys.length === 0 ? "on" : "off",
           onPress: () => props.onProjectChange(null),
         },
         ...props.projects.map((project) => ({
           type: "action" as const,
           title: project.label,
-          state: props.selectedProjectKey === project.key ? ("on" as const) : ("off" as const),
+          state: props.selectedProjectKeys.includes(project.key)
+            ? ("on" as const)
+            : ("off" as const),
           onPress: () => props.onProjectChange(project.key),
         })),
       ],
