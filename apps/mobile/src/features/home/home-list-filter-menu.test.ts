@@ -12,7 +12,7 @@ describe("buildHomeListFilterMenu", () => {
         { key: "environment-1:project-2", label: "Website" },
       ],
       selectedEnvironmentId: null,
-      selectedProjectKey: "environment-1:project-1",
+      selectedProjectKeys: ["environment-1:project-1"],
       onEnvironmentChange: vi.fn(),
       onProjectChange,
     });
