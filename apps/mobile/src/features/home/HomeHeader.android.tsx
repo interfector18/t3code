@@ -15,7 +15,7 @@ export function HomeHeader(props: HomeHeaderProps) {
   // the filter menu only carries the filters and the "customized" icon state
   // keys off those alone.
   const hasCustomListOptions =
-    props.selectedEnvironmentId !== null || props.selectedProjectKey !== null;
+    props.selectedEnvironmentId !== null || props.selectedProjectKeys.length > 0;
   const menuActions = useMemo<MenuAction[]>(
     () => [
       {
@@ -44,18 +44,18 @@ export function HomeHeader(props: HomeHeaderProps) {
                 {
                   id: "project:all",
                   title: "All projects",
-                  state: checkedMenuState(props.selectedProjectKey === null),
+                  state: checkedMenuState(props.selectedProjectKeys.length === 0),
                 },
                 ...props.projects.map((project) => ({
                   id: `project:${project.key}`,
                   title: project.label,
-                  state: checkedMenuState(props.selectedProjectKey === project.key),
+                  state: checkedMenuState(props.selectedProjectKeys.includes(project.key)),
                 })),
               ],
             },
           ] satisfies MenuAction[])),
     ],
-    [props.environments, props.projects, props.selectedEnvironmentId, props.selectedProjectKey],
+    [props.environments, props.projects, props.selectedEnvironmentId, props.selectedProjectKeys],
   );
   const handleMenuAction = useCallback(
     (event: { nativeEvent: { event: string } }) => {

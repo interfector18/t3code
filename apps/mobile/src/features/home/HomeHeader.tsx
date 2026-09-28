@@ -25,7 +25,7 @@ export function HomeHeader(props: HomeHeaderProps) {
   // the filter menu only carries the filters and the "customized" icon state
   // keys off those alone.
   const hasCustomListOptions =
-    props.selectedEnvironmentId !== null || props.selectedProjectKey !== null;
+    props.selectedEnvironmentId !== null || props.selectedProjectKeys.length > 0;
   const focusSearch = useCallback(() => {
     searchBarRef.current?.focus();
     return searchBarRef.current !== null;
@@ -157,7 +157,7 @@ export function HomeHeader(props: HomeHeaderProps) {
               <NativeHeaderToolbar.Menu title="Project">
                 <NativeHeaderToolbar.Label>Project</NativeHeaderToolbar.Label>
                 <NativeHeaderToolbar.MenuAction
-                  isOn={props.selectedProjectKey === null}
+                  isOn={props.selectedProjectKeys.length === 0}
                   onPress={() => props.onProjectChange(null)}
                   subtitle="Show threads from every project"
                 >
@@ -166,7 +166,7 @@ export function HomeHeader(props: HomeHeaderProps) {
                 {props.projects.map((project) => (
                   <NativeHeaderToolbar.MenuAction
                     key={project.key}
-                    isOn={props.selectedProjectKey === project.key}
+                    isOn={props.selectedProjectKeys.includes(project.key)}
                     onPress={() => props.onProjectChange(project.key)}
                   >
                     <NativeHeaderToolbar.Label>{project.label}</NativeHeaderToolbar.Label>
