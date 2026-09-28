@@ -12,7 +12,7 @@ export function ThreadListFilters(props: {
   readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
   readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
   readonly selectedEnvironmentId: EnvironmentId | null;
-  readonly selectedProjectKey: string | null;
+  readonly selectedProjectKeys: readonly string[];
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
   readonly onProjectChange: (projectKey: string | null) => void;
   /** List padding the scroller bleeds through so pills start where row content does. */
@@ -22,8 +22,8 @@ export function ThreadListFilters(props: {
   const selectedEnvironment = props.environments.find(
     (environment) => environment.environmentId === props.selectedEnvironmentId,
   );
-  const selectedProject = props.projects.find(
-    (project) => project.key === props.selectedProjectKey,
+  const selectedProjects = props.projects.filter((project) =>
+    props.selectedProjectKeys.includes(project.key),
   );
   return (
     <ScrollView
@@ -62,19 +62,27 @@ export function ThreadListFilters(props: {
         }}
       />
       <ListFilterMenu
-        label={selectedProject?.label ?? gt("All projects")}
+        label={
+          selectedProjects.length > 1
+            ? gt("{count, plural, one {{count} project} other {{count} projects}}", {
+                count: selectedProjects.length,
+              })
+            : (selectedProjects[0]?.label ?? gt("All projects"))
+        }
         accessibilityLabel={gt("Filter threads by project")}
-        active={selectedProject !== undefined}
+        active={selectedProjects.length > 0}
         actions={[
           {
             id: "all",
             title: gt("All projects"),
-            state: props.selectedProjectKey === null ? "on" : "off",
+            state: props.selectedProjectKeys.length === 0 ? "on" : "off",
           },
           ...props.projects.map((project) => ({
             id: JSON.stringify(project.key),
             title: project.label,
-            state: project.key === props.selectedProjectKey ? ("on" as const) : ("off" as const),
+            state: props.selectedProjectKeys.includes(project.key)
+              ? ("on" as const)
+              : ("off" as const),
           })),
         ]}
         onSelect={(id) => {
@@ -87,7 +95,7 @@ export function ThreadListFilters(props: {
           }
         }}
       />
-      {props.selectedEnvironmentId !== null || props.selectedProjectKey !== null ? (
+      {props.selectedEnvironmentId !== null || props.selectedProjectKeys.length > 0 ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={gt("Reset thread filters")}
