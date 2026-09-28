@@ -10,7 +10,7 @@ import type { HomeProjectSortOrder } from "./homeThreadList";
 
 export interface HomeListOptions {
   readonly selectedEnvironmentId: EnvironmentId | null;
-  readonly selectedProjectKey: string | null;
+  readonly selectedProjectKeys: readonly string[];
   readonly projectSortOrder: HomeProjectSortOrder;
 }
 
@@ -21,7 +21,7 @@ export interface ResolvedHomeListOptions extends HomeListOptions {
 function defaultHomeListOptions(filters?: ThreadListFilters): HomeListOptions {
   return {
     selectedEnvironmentId: filters?.environmentId ?? null,
-    selectedProjectKey: filters?.projectKey ?? null,
+    selectedProjectKeys: filters?.projectKeys ?? (filters?.projectKey ? [filters.projectKey] : []),
     projectSortOrder:
       DEFAULT_SIDEBAR_PROJECT_SORT_ORDER === "manual"
         ? "updated_at"
@@ -29,9 +29,13 @@ function defaultHomeListOptions(filters?: ThreadListFilters): HomeListOptions {
   };
 }
 
+type HomeListOptionsUpdate =
+  | Partial<HomeListOptions>
+  | ((current: HomeListOptions) => Partial<HomeListOptions>);
+
 interface HomeListOptionsContextValue {
   readonly options: HomeListOptions;
-  readonly updateOptions: (patch: Partial<HomeListOptions>) => void;
+  readonly updateOptions: (patch: HomeListOptionsUpdate) => void;
   readonly projectGroupingMode: SidebarProjectGroupingMode;
 }
 
@@ -51,18 +55,20 @@ export function HomeListOptionsProvider({
   const savePreferences = useAtomSet(updateMobilePreferencesAtom);
   // Only the scope persists; the sort order is per session. Updates read the
   // registry, so several in one event each build on the last and save it.
-  const updateOptions = (patch: Partial<HomeListOptions>) => {
+  const updateOptions = (patch: HomeListOptionsUpdate) => {
     const current = registry.get(optionsAtom);
-    const next = { ...current, ...patch };
+    const next = { ...current, ...(typeof patch === "function" ? patch(current) : patch) };
     registry.set(optionsAtom, next);
     if (
       next.selectedEnvironmentId !== current.selectedEnvironmentId ||
-      next.selectedProjectKey !== current.selectedProjectKey
+      next.selectedProjectKeys.length !== current.selectedProjectKeys.length ||
+      next.selectedProjectKeys.some((key, index) => key !== current.selectedProjectKeys[index])
     ) {
       savePreferences({
         threadListFilters: {
           environmentId: next.selectedEnvironmentId,
-          projectKey: next.selectedProjectKey,
+          projectKey: next.selectedProjectKeys[0] ?? null,
+          projectKeys: next.selectedProjectKeys,
         },
       });
     }
@@ -77,7 +83,11 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
   const options = shared?.options ?? localOptions;
   const updateOptions =
     shared?.updateOptions ??
-    ((patch: Partial<HomeListOptions>) => setLocalOptions((current) => ({ ...current, ...patch })));
+    ((patch: HomeListOptionsUpdate) =>
+      setLocalOptions((current) => ({
+        ...current,
+        ...(typeof patch === "function" ? patch(current) : patch),
+      })));
   const selectedEnvironmentId =
     options.selectedEnvironmentId !== null &&
     availableEnvironmentIds.has(options.selectedEnvironmentId)
@@ -95,8 +105,12 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
   const setSelectedEnvironmentId = (value: EnvironmentId | null) => {
     updateOptions({ selectedEnvironmentId: value });
   };
-  const setSelectedProjectKey = (value: string | null) => {
-    updateOptions({ selectedProjectKey: value });
+  const setSelectedProjectKeys = (
+    value: readonly string[] | ((current: readonly string[]) => readonly string[]),
+  ) => {
+    updateOptions((current) => ({
+      selectedProjectKeys: typeof value === "function" ? value(current.selectedProjectKeys) : value,
+    }));
   };
   const setProjectSortOrder = (value: HomeProjectSortOrder) => {
     updateOptions({ projectSortOrder: value });
@@ -104,7 +118,7 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
   return {
     options: resolvedOptions,
     setSelectedEnvironmentId,
-    setSelectedProjectKey,
+    setSelectedProjectKeys,
     setProjectSortOrder,
   } as const;
 }
