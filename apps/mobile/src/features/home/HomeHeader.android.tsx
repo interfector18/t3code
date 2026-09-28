@@ -11,7 +11,7 @@ function checkedMenuState(checked: boolean) {
 
 export function HomeHeader(props: HomeHeaderProps) {
   const hasCustomListOptions =
-    props.selectedEnvironmentId !== null || props.selectedProjectKey !== null;
+    props.selectedEnvironmentId !== null || props.selectedProjectKeys.length > 0;
   const menuActions: MenuAction[] = [
     {
       id: "environment",
@@ -39,12 +39,12 @@ export function HomeHeader(props: HomeHeaderProps) {
               {
                 id: "project:all",
                 title: "All projects",
-                state: checkedMenuState(props.selectedProjectKey === null),
+                state: checkedMenuState(props.selectedProjectKeys.length === 0),
               },
               ...props.projects.map((project) => ({
                 id: `project:${project.key}`,
                 title: project.label,
-                state: checkedMenuState(props.selectedProjectKey === project.key),
+                state: checkedMenuState(props.selectedProjectKeys.includes(project.key)),
               })),
             ],
           },
