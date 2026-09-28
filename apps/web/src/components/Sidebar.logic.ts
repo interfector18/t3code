@@ -1130,6 +1130,14 @@ export function filterSidebarProjectScopeItems<TItem extends { readonly value: s
   return input.items.filter((item) => item.value !== "all" && input.matches(item, query));
 }
 
+export function resolveSidebarProjectScopeSelection(
+  currentKeys: readonly string[],
+  selectedValues: readonly string[],
+): string[] {
+  if (!selectedValues.includes("all")) return selectedValues.filter((key) => key !== "all");
+  return currentKeys.length === 0 ? selectedValues.filter((key) => key !== "all") : [];
+}
+
 export interface SidebarProjectScopeMenuState {
   readonly open: boolean;
   readonly query: string;
