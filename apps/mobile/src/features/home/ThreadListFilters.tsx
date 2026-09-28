@@ -9,7 +9,7 @@ export function ThreadListFilters(
     | "environments"
     | "projects"
     | "selectedEnvironmentId"
-    | "selectedProjectKey"
+    | "selectedProjectKeys"
     | "onEnvironmentChange"
     | "onProjectChange"
   > & {
@@ -20,8 +20,8 @@ export function ThreadListFilters(
   const selectedEnvironment = props.environments.find(
     (environment) => environment.environmentId === props.selectedEnvironmentId,
   );
-  const selectedProject = props.projects.find(
-    (project) => project.key === props.selectedProjectKey,
+  const selectedProjects = props.projects.filter((project) =>
+    props.selectedProjectKeys.includes(project.key),
   );
   return (
     <ScrollView
@@ -60,19 +60,25 @@ export function ThreadListFilters(
         }}
       />
       <ListFilterMenu
-        label={selectedProject?.label ?? "All projects"}
+        label={
+          selectedProjects.length > 1
+            ? `${selectedProjects.length} projects`
+            : (selectedProjects[0]?.label ?? "All projects")
+        }
         accessibilityLabel="Filter threads by project"
-        active={selectedProject !== undefined}
+        active={selectedProjects.length > 0}
         actions={[
           {
             id: "all",
             title: "All projects",
-            state: props.selectedProjectKey === null ? "on" : "off",
+            state: props.selectedProjectKeys.length === 0 ? "on" : "off",
           },
           ...props.projects.map((project) => ({
             id: JSON.stringify(project.key),
             title: project.label,
-            state: project.key === props.selectedProjectKey ? ("on" as const) : ("off" as const),
+            state: props.selectedProjectKeys.includes(project.key)
+              ? ("on" as const)
+              : ("off" as const),
           })),
         ]}
         onSelect={(id) => {
@@ -85,7 +91,7 @@ export function ThreadListFilters(
           }
         }}
       />
-      {props.selectedEnvironmentId !== null || props.selectedProjectKey !== null ? (
+      {props.selectedEnvironmentId !== null || props.selectedProjectKeys.length > 0 ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Reset thread filters"
