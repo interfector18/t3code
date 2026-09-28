@@ -16,7 +16,7 @@ export function buildHomeListFilterMenuItems(props: {
   readonly environments: ReadonlyArray<HomeListFilterMenuEnvironment>;
   readonly projects: ReadonlyArray<HomeListFilterMenuProject>;
   readonly selectedEnvironmentId: EnvironmentId | null;
-  readonly selectedProjectKey: string | null;
+  readonly selectedProjectKeys: readonly string[];
   readonly onEnvironmentChange: (environmentId: EnvironmentId | null) => void;
   readonly onProjectChange: (projectKey: string | null) => void;
 }): AppBarMenuItem[] {
@@ -51,13 +51,13 @@ export function buildHomeListFilterMenuItems(props: {
           id: "project:all",
           title: "All projects",
           subtitle: "Show threads from every project",
-          selected: props.selectedProjectKey === null,
+          selected: props.selectedProjectKeys.length === 0,
           onPress: () => props.onProjectChange(null),
         },
         ...props.projects.map((project) => ({
           id: `project:${project.key}`,
           title: project.label,
-          selected: props.selectedProjectKey === project.key,
+          selected: props.selectedProjectKeys.includes(project.key),
           onPress: () => props.onProjectChange(project.key),
         })),
       ],
