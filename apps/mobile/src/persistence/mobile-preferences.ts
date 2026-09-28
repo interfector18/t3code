@@ -69,6 +69,7 @@ const isIssueSavedView = Schema.is(IssueSavedView);
 const ThreadListFilters = Schema.Struct({
   environmentId: Schema.NullOr(EnvironmentId),
   projectKey: Schema.NullOr(Schema.String),
+  projectKeys: Schema.optional(Schema.Array(Schema.String)),
 });
 export type ThreadListFilters = typeof ThreadListFilters.Type;
 
