@@ -8,6 +8,7 @@ import {
   resolveSidebarVcsStatusMode,
   archiveSelectedThreadEntries,
   deleteSelectedThreadEntries,
+  resolveSidebarProjectScopeSelection,
   getFallbackThreadIdAfterDelete,
   hasUnseenCompletion,
   resolveSidebarRowThreadId,
@@ -377,6 +378,22 @@ describe("searchSidebarThreads", () => {
         contentMatches: [threads[1]],
       },
     );
+  });
+});
+
+describe("resolveSidebarProjectScopeSelection", () => {
+  it("starts a selection from all projects and adds more projects", () => {
+    expect(resolveSidebarProjectScopeSelection([], ["all", "alpha"])).toEqual(["alpha"]);
+    expect(resolveSidebarProjectScopeSelection(["alpha"], ["alpha", "beta"])).toEqual([
+      "alpha",
+      "beta",
+    ]);
+  });
+
+  it("removes projects and clears the selection through all projects", () => {
+    expect(resolveSidebarProjectScopeSelection(["alpha", "beta"], ["beta"])).toEqual(["beta"]);
+    expect(resolveSidebarProjectScopeSelection(["alpha"], [])).toEqual([]);
+    expect(resolveSidebarProjectScopeSelection(["alpha"], ["alpha", "all"])).toEqual([]);
   });
 });
 
