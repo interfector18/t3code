@@ -262,6 +262,9 @@ packageExtensions:
   "@clerk/expo@*":
     dependencies:
       "@expo/config-plugins": 58.0.4
+  "expo-quick-actions@*":
+    dependencies:
+      "@expo/config-plugins": 58.0.4
   # Our patch makes @effect/vitest import vite-plus/test. A catalog: spec here
   # resolves through the vite-plus override above.
   "@effect/vitest@*":
@@ -299,6 +302,8 @@ patchedDependencies:
   react-native-nitro-modules@0.35.9: patches/react-native-nitro-modules@0.35.9.patch
   # Android: a nested WebView hands a vertical drag to its scrolling parent at the page's edge.
   react-native-webview@14.0.1: patches/react-native-webview@14.0.1.patch
+  # Android must link the bundled ABI-specific Oniguruma library, never a host library.
+  react-native-shiki-engine@0.3.12: patches/react-native-shiki-engine@0.3.12.patch
 
 peerDependencyRules:
   allowAny:
