@@ -354,7 +354,7 @@ overrides:
   '@vercel/routing-utils>path-to-regexp': 6.3.0
   '@vercel/config>zod': 4.6.7
 
-packageExtensionsChecksum: sha256-18pwcgTDbqYFYAzCw8OfBYuC2btyq6aJSLhE/gjTJb4=
+packageExtensionsChecksum: sha256-WLmDcCsoEQnYaUouuv8o20vAiJvcNtzT16MvQXl7JVU=
 
 pnpmfileChecksum: sha256-h8NLkl2dhhbQKbAHnoo4rQ3tYV96igLQxJ7la6dsbSc=
 
@@ -19470,6 +19470,7 @@ snapshots:
 
   expo-quick-actions@6.0.2(expo@58.0.23)(supports-color@8.1.1)(typescript@6.0.3):
     dependencies:
+      '@expo/config-plugins': 58.0.12(supports-color@8.1.1)(typescript@6.0.3)
       '@expo/image-utils': 0.8.14(supports-color@8.1.1)(typescript@6.0.3)
       expo: 58.0.23(d226faf1ca90e630d8c56a2108dee32d)
       schema-utils: 4.3.3
