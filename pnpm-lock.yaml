@@ -341,7 +341,7 @@ overrides:
   vite-plus: 1.4.0
   yaml: ^2.9.0
 
-packageExtensionsChecksum: sha256-EowbsmlBFaoO0Ypufw901RnvdyjKG5dcdk2FRbc7Dr0=
+packageExtensionsChecksum: sha256-cuziI9BMLgi5UW0Od5q/grbjX9BcFry8Jn1C5M453po=
 
 pnpmfileChecksum: sha256-STsbxG7+RxOFI611PrDEj1TonJgqKKllY9hYCFMLYiU=
 
@@ -18735,6 +18735,7 @@ snapshots:
 
   expo-quick-actions@6.0.2(@tsc-rs/typescript@0.8.0)(expo@58.0.14)(supports-color@8.1.1):
     dependencies:
+      '@expo/config-plugins': 58.0.9(@tsc-rs/typescript@0.8.0)(supports-color@8.1.1)
       '@expo/image-utils': 0.8.14(@tsc-rs/typescript@0.8.0)(supports-color@8.1.1)
       expo: 58.0.14(277a83826bb26ba15256633fefeb0bc2)
       schema-utils: 4.3.3
