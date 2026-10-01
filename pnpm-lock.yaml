@@ -92,7 +92,7 @@ overrides:
   vite-plus: 1.0.0
   yaml: ^2.9.0
 
-packageExtensionsChecksum: sha256-FYDaKefjFcda1+vgiq8yMpZC4ehE5CyLi/bsCGLgTtY=
+packageExtensionsChecksum: sha256-qxEIieag03Y1bi3IHUeK9S8YIBknk40+aAswD9VtwXs=
 
 patchedDependencies:
   '@clerk/expo@4.6.8': b8b22ab733de5bea846ad9e88046c10582352fe9ad86f314f368b2a823f0f281
@@ -121,6 +121,7 @@ patchedDependencies:
   react-native-nitro-markdown@0.5.8: 642b47830730acff3761fe29cf54271d18b493c0070c750097850b7ea032e00c
   react-native-nitro-modules@0.35.9: daf4a639ce3f951af630a3711e4082d58e3a11e5a79f45efb0b59925327ebde2
   react-native-screens@4.28.0: cc1301436ee62c39860acc9ee1a1e60b7d47e6abd211c42effa62c056d165483
+  react-native-shiki-engine@0.3.12: 12b06e7b912a3189294cdd86a4262d106f3064ac8bf9130f761c9a0d8e8210fd
 
 importers:
 
@@ -478,7 +479,7 @@ importers:
         version: 4.28.0(patch_hash=cc1301436ee62c39860acc9ee1a1e60b7d47e6abd211c42effa62c056d165483)(react-native@0.88.0-rc.3(@babel/core@7.29.7)(@react-native/metro-config@0.88.0-rc.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
       react-native-shiki-engine:
         specifier: ^0.3.12
-        version: 0.3.12(react-native@0.88.0-rc.3(@babel/core@7.29.7)(@react-native/metro-config@0.88.0-rc.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
+        version: 0.3.12(patch_hash=12b06e7b912a3189294cdd86a4262d106f3064ac8bf9130f761c9a0d8e8210fd)(react-native@0.88.0-rc.3(@babel/core@7.29.7)(@react-native/metro-config@0.88.0-rc.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
       react-native-svg:
         specifier: 15.15.5
         version: 15.15.5(react-native@0.88.0-rc.3(@babel/core@7.29.7)(@react-native/metro-config@0.88.0-rc.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0)
@@ -18347,6 +18348,7 @@ snapshots:
 
   expo-quick-actions@6.0.2(expo@58.0.2)(typescript@7.0.2):
     dependencies:
+      '@expo/config-plugins': 58.0.4(typescript@7.0.2)
       '@expo/image-utils': 0.8.14(typescript@7.0.2)
       expo: 58.0.2(56fc8ddb8129740412739f0f0a6ee025)
       schema-utils: 4.3.3
@@ -21111,7 +21113,7 @@ snapshots:
       react-native: 0.88.0-rc.3(@babel/core@7.29.7)(@react-native/metro-config@0.88.0-rc.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6)
       warn-once: 0.1.1
 
-  react-native-shiki-engine@0.3.12(react-native@0.88.0-rc.3(@babel/core@7.29.7)(@react-native/metro-config@0.88.0-rc.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0):
+  react-native-shiki-engine@0.3.12(patch_hash=12b06e7b912a3189294cdd86a4262d106f3064ac8bf9130f761c9a0d8e8210fd)(react-native@0.88.0-rc.3(@babel/core@7.29.7)(@react-native/metro-config@0.88.0-rc.3(@babel/core@7.29.7)(bufferutil@4.1.0)(utf-8-validate@6.0.6))(@types/react@19.3.0)(bufferutil@4.1.0)(react@19.3.0)(utf-8-validate@6.0.6))(react@19.3.0):
     dependencies:
       '@shikijs/types': 4.3.0
       '@shikijs/vscode-textmate': 10.0.2
