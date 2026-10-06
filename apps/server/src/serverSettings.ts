@@ -391,6 +391,11 @@ function migrateLegacySourceControlSettings(
 const HISTORY_RESTORED_DRIVERS: ReadonlySet<ProviderDriverKind> = new Set(
   ["cursor", "grok", "opencode"].map((driver) => ProviderDriverKind.make(driver)),
 );
+const decodeLegacyWorktreeSettingsJsonExit = Schema.decodeUnknownExit(
+  Schema.fromJsonString(
+    Schema.Struct({ worktreeBaseDirectory: Schema.optionalKey(Schema.String) }),
+  ),
+);
 
 function migrateLegacyProviderSettings(
   settings: ServerSettings,
@@ -702,6 +707,7 @@ const make = Effect.gen(function* () {
     let legacyProviders: Readonly<Record<string, unknown>> | undefined;
     let legacySourceControl: Parameters<typeof migrateLegacySourceControlSettings>[1] = {};
     let parseFailure = Option.none<unknown>();
+    let legacyWorktreeDirectory = "";
 
     if (yield* readConfigExists) {
       const raw = yield* readRawConfig;
@@ -728,6 +734,10 @@ const make = Effect.gen(function* () {
         }
       } else {
         settings = decoded.value;
+        const legacy = decodeLegacyWorktreeSettingsJsonExit(raw);
+        if (legacy._tag === "Success") {
+          legacyWorktreeDirectory = legacy.value.worktreeBaseDirectory?.trim() ?? "";
+        }
       }
     }
     // Settings saved by a server that kept the mode in `compactIdleThreads` move
@@ -793,9 +803,19 @@ const make = Effect.gen(function* () {
         ? settings
         : migrateLegacyProviderSettings(settings, legacyProviders, providerHistory),
     );
-    const folded = settingsFileTrusted
-      ? foldLegacyProjectSettings(loaded, legacyProjectRows)
+    // Retire the fork's old setting without losing its location or overriding a newer choice.
+    const worktreeMigrated = legacyWorktreeDirectory
+      ? {
+          ...loaded,
+          worktreesDirectory: loaded.worktreesDirectory || legacyWorktreeDirectory,
+          previousWorktreesDirectories: [
+            ...new Set([...loaded.previousWorktreesDirectories, legacyWorktreeDirectory]),
+          ],
+        }
       : loaded;
+    const folded = settingsFileTrusted
+      ? foldLegacyProjectSettings(worktreeMigrated, legacyProjectRows)
+      : worktreeMigrated;
     // Remove retired keys only after copying secrets and writing the new file; failures retry on next load.
     const legacySecretsCopied = yield* Effect.forEach(
       settingsFileTrusted
