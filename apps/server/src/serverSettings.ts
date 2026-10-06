@@ -484,6 +484,11 @@ function migrateLegacySourceControlSettings(
 const HISTORY_RESTORED_DRIVERS: ReadonlySet<ProviderDriverKind> = new Set(
   ["cursor", "grok", "opencode"].map((driver) => ProviderDriverKind.make(driver)),
 );
+const decodeLegacyWorktreeSettingsJsonExit = Schema.decodeUnknownExit(
+  Schema.fromJsonString(
+    Schema.Struct({ worktreeBaseDirectory: Schema.optionalKey(Schema.String) }),
+  ),
+);
 
 /**
  * Move each customized legacy `providers.<kind>` blob into the driver's
@@ -841,6 +846,7 @@ const make = Effect.gen(function* () {
     let settings = DEFAULT_SERVER_SETTINGS;
     let legacyProviders: Readonly<Record<string, unknown>> | undefined;
     let legacySourceControl: Parameters<typeof migrateLegacySourceControlSettings>[1] = {};
+    let legacyWorktreeDirectory = "";
     // A file that failed to decode must stay on disk for the user to repair;
     // the fold below only writes when it started from the file's real contents.
     let settingsFileTrusted = true;
@@ -868,6 +874,10 @@ const make = Effect.gen(function* () {
         }
       } else {
         settings = decoded.value;
+        const legacy = decodeLegacyWorktreeSettingsJsonExit(raw);
+        if (legacy._tag === "Success") {
+          legacyWorktreeDirectory = legacy.value.worktreeBaseDirectory?.trim() ?? "";
+        }
       }
     }
 
@@ -925,9 +935,19 @@ const make = Effect.gen(function* () {
         ? settings
         : migrateLegacyProviderSettings(settings, legacyProviders, providerHistory),
     );
-    const folded = settingsFileTrusted
-      ? foldLegacyProjectSettings(loaded, legacyProjectRows)
+    // Retire the fork's old setting without losing its location or overriding a newer choice.
+    const worktreeMigrated = legacyWorktreeDirectory
+      ? {
+          ...loaded,
+          worktreesDirectory: loaded.worktreesDirectory || legacyWorktreeDirectory,
+          previousWorktreesDirectories: [
+            ...new Set([...loaded.previousWorktreesDirectories, legacyWorktreeDirectory]),
+          ],
+        }
       : loaded;
+    const folded = settingsFileTrusted
+      ? foldLegacyProjectSettings(worktreeMigrated, legacyProjectRows)
+      : worktreeMigrated;
     // Copied, not moved: the old entry is removed only after the new file is written. A token
     // that cannot be read or copied leaves the retired keys in place, so the migration runs again
     // on the next load instead of dropping it.
