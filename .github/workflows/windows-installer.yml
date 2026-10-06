@@ -14,8 +14,8 @@ concurrency:
 
 jobs:
   build:
-    name: Build unsigned Windows x64 installer
-    runs-on: windows-2022
+    name: Build unsigned Windows ARM64 installer
+    runs-on: windows-11-arm
     timeout-minutes: 60
     steps:
       # Avoid checkout's submodule cleanup on the orphaned .repos gitlinks.
@@ -43,7 +43,7 @@ jobs:
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           toolchain: stable
-          targets: x86_64-pc-windows-msvc
+          targets: aarch64-pc-windows-msvc
 
       - name: Install Spectre-mitigated MSVC libraries
         shell: pwsh
@@ -54,7 +54,7 @@ jobs:
           $setupExe = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe"
           $proc = Start-Process -FilePath $setupExe `
             -ArgumentList "modify", "--installPath", "`"$installPath`"", "--add", `
-            "Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre", "--quiet", "--norestart" `
+            "Microsoft.VisualStudio.Component.VC.Runtimes.ARM64.Spectre", "--quiet", "--norestart" `
             -Wait -PassThru -NoNewWindow
           if ($null -eq $proc -or $proc.ExitCode -notin @(0, 3010)) {
             throw "Visual Studio Installer failed: $($proc.ExitCode)"
@@ -75,12 +75,12 @@ jobs:
           cp .env.example .env
 
       - name: Build installer
-        run: vp run dist:desktop:win:x64 --verbose
+        run: vp run dist:desktop:win:arm64 --verbose
 
       - name: Upload installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: windows-x64-installer
+          name: windows-arm64-installer
           path: release/*.exe
           if-no-files-found: error
           retention-days: 14
