@@ -121,7 +121,7 @@ jobs:
           set -euo pipefail
           mkdir -p update-assets
           shopt -s nullglob
-          assets=(release/*.exe release/*.exe.blockmap release/*.AppImage release/*.deb release/nightly.yml release/nightly-linux.yml)
+          assets=(release/*.exe release/*.exe.blockmap release/*.AppImage release/*.deb release/nightly*.yml)
           test "${#assets[@]}" -gt 0
           cp "${assets[@]}" update-assets/
 
@@ -158,7 +158,7 @@ jobs:
           shopt -s nullglob
           installers=(release/*-arm64.exe)
           blockmaps=(release/*-arm64.exe.blockmap)
-          appimages=(release/*-x64.AppImage)
+          appimages=(release/*-x86_64.AppImage)
           debs=(release/*.deb)
           test "${#installers[@]}" -eq 1
           test "${#blockmaps[@]}" -eq 1
