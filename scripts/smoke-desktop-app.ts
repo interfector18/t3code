@@ -56,6 +56,12 @@ try {
   step = "waiting for the first window";
   const page = await app.firstWindow({ timeout: STEP_TIMEOUT_MS });
   try {
+    step = "expanding the settled thread shelf";
+    const settledShelf = page.getByTestId("sidebar-settled-shelf-toggle");
+    await settledShelf.waitFor({ timeout: STEP_TIMEOUT_MS });
+    if ((await settledShelf.getAttribute("aria-expanded")) === "false") {
+      await settledShelf.click();
+    }
     step = `finding "${THREAD_TITLE}" in the sidebar`;
     const thread = page.locator("li[data-thread-item]", { hasText: THREAD_TITLE });
     await thread.waitFor({ timeout: STEP_TIMEOUT_MS });
