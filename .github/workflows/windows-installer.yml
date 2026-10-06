@@ -3,10 +3,12 @@ name: Windows installer
 # Personal fork builds use native Windows. WSL needs a separately built Linux
 # CLI archive; this workflow deliberately does not bundle one.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: windows-installer-${{ github.ref }}
@@ -17,6 +19,8 @@ jobs:
     name: Build unsigned Windows ARM64 installer
     runs-on: windows-11-arm
     timeout-minutes: 60
+    env:
+      T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
     steps:
       # Avoid checkout's submodule cleanup on the orphaned .repos gitlinks.
       - name: Checkout
@@ -63,14 +67,16 @@ jobs:
       - name: Install build dependencies
         run: vp install --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
 
-      - name: Configure preview build
+      - name: Configure nightly build
+        id: version
         shell: bash
         run: |
           set -euo pipefail
           base_version="$(node -p "require('./apps/desktop/package.json').version")"
           build_date="$(date -u +%Y%m%d)"
-          # Preview versions omit the official release update feed.
-          node scripts/update-release-package-versions.ts "${base_version}-preview.${build_date}.${GITHUB_RUN_NUMBER}"
+          version="${base_version}-nightly.${build_date}.${GITHUB_RUN_NUMBER}"
+          node scripts/update-release-package-versions.ts "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           # This file contains public T3 Connect identifiers, not credentials.
           cp .env.example .env
 
@@ -84,3 +90,25 @@ jobs:
           path: release/*.exe
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish update release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Only publish a complete installer and its matching update metadata.
+          test -f release/nightly.yml
+          shopt -s nullglob
+          installers=(release/*-arm64.exe)
+          blockmaps=(release/*-arm64.exe.blockmap)
+          test "${#installers[@]}" -eq 1
+          test "${#blockmaps[@]}" -eq 1
+          gh release create "v${BUILD_VERSION}" \
+            "${installers[@]}" "${blockmaps[@]}" release/nightly.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Windows ARM64 ${BUILD_VERSION}" \
+            --notes "Unsigned Windows ARM64 build from commit ${GITHUB_SHA}. Native Windows backend; WSL runtime is not bundled." \
+            --prerelease
