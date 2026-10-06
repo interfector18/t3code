@@ -1,4 +1,4 @@
-name: Windows installer
+name: Desktop installers
 
 # Personal fork builds use native Windows. WSL needs a separately built Linux
 # CLI archive; this workflow deliberately does not bundle one.
@@ -8,16 +8,46 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: windows-installer-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Resolve release version
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base_version="$(gh api "repos/$GITHUB_REPOSITORY/contents/apps/desktop/package.json?ref=$GITHUB_SHA" --jq .content | base64 --decode | node -e 'let s=""; process.stdin.on("data", c => s += c); process.stdin.on("end", () => console.log(JSON.parse(s).version));')"
+          echo "version=${base_version}-nightly.$(date -u +%Y%m%d).${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
   build:
-    name: Build unsigned Windows ARM64 installer
-    runs-on: windows-11-arm
+    needs: version
+    name: Build ${{ matrix.platform }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: win
+            arch: arm64
+            runner: windows-11-arm
+            target: nsis
+            rust_target: aarch64-pc-windows-msvc
+          - platform: linux
+            arch: x64
+            runner: ubuntu-24.04
+            target: AppImage
+            rust_target: x86_64-unknown-linux-gnu
     timeout-minutes: 60
     env:
       T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
@@ -40,16 +70,17 @@ jobs:
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1
         with:
           node-version-file: package.json
-          cache: false
+          cache: ${{ matrix.platform == 'linux' }}
           run-install: false
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           toolchain: stable
-          targets: aarch64-pc-windows-msvc
+          targets: ${{ matrix.rust_target }}
 
       - name: Install Spectre-mitigated MSVC libraries
+        if: matrix.platform == 'win'
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -64,51 +95,80 @@ jobs:
             throw "Visual Studio Installer failed: $($proc.ExitCode)"
           }
 
+      - name: Install Linux build libraries
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config imagemagick
+
       - name: Install build dependencies
         run: vp install --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
 
       - name: Configure nightly build
-        id: version
         shell: bash
+        env:
+          BUILD_VERSION: ${{ needs.version.outputs.version }}
         run: |
           set -euo pipefail
-          base_version="$(node -p "require('./apps/desktop/package.json').version")"
-          build_date="$(date -u +%Y%m%d)"
-          version="${base_version}-nightly.${build_date}.${GITHUB_RUN_NUMBER}"
-          node scripts/update-release-package-versions.ts "$version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          node scripts/update-release-package-versions.ts "$BUILD_VERSION"
           # This file contains public T3 Connect identifiers, not credentials.
           cp .env.example .env
 
       - name: Build installer
-        run: vp run dist:desktop:win:arm64 --verbose
+        run: vp run dist:desktop:artifact --platform "${{ matrix.platform }}" --target "${{ matrix.target }}" --arch "${{ matrix.arch }}" --verbose
 
-      - name: Upload installer
+      - name: Collect update assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p update-assets
+          shopt -s nullglob
+          assets=(release/*.exe release/*.exe.blockmap release/*.AppImage release/*.deb release/nightly.yml release/nightly-linux.yml)
+          test "${#assets[@]}" -gt 0
+          cp "${assets[@]}" update-assets/
+
+      - name: Upload update assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: windows-arm64-installer
-          path: release/*.exe
+          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          path: update-assets/*
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download update assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: desktop-*
+          path: release
+          merge-multiple: true
 
       - name: Publish update release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          BUILD_VERSION: ${{ steps.version.outputs.version }}
+          BUILD_VERSION: ${{ needs.version.outputs.version }}
         run: |
           set -euo pipefail
-          # Only publish a complete installer and its matching update metadata.
           test -f release/nightly.yml
+          test -f release/nightly-linux.yml
           shopt -s nullglob
           installers=(release/*-arm64.exe)
           blockmaps=(release/*-arm64.exe.blockmap)
+          appimages=(release/*-x64.AppImage)
+          debs=(release/*.deb)
           test "${#installers[@]}" -eq 1
           test "${#blockmaps[@]}" -eq 1
+          test "${#appimages[@]}" -eq 1
+          test "${#debs[@]}" -eq 1
           gh release create "v${BUILD_VERSION}" \
-            "${installers[@]}" "${blockmaps[@]}" release/nightly.yml \
+            "${installers[@]}" "${blockmaps[@]}" "${appimages[@]}" "${debs[@]}" \
+            release/nightly.yml release/nightly-linux.yml \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Windows ARM64 ${BUILD_VERSION}" \
-            --notes "Unsigned Windows ARM64 build from commit ${GITHUB_SHA}. Native Windows backend; WSL runtime is not bundled." \
+            --title "Desktop ${BUILD_VERSION}" \
+            --notes "Windows ARM64 and Linux x64 builds from commit ${GITHUB_SHA}. Native Windows backend; WSL runtime is not bundled." \
             --prerelease
