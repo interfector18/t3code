@@ -384,6 +384,11 @@ const ServerSettingsJson = fromLenientJson(
   }),
 );
 const decodeServerSettingsJsonExit = Schema.decodeUnknownExit(ServerSettingsJson);
+const decodeLegacyWorktreeSettingsJsonExit = Schema.decodeUnknownExit(
+  Schema.fromJsonString(
+    Schema.Struct({ worktreeBaseDirectory: Schema.optionalKey(Schema.String) }),
+  ),
+);
 const PersistedOptionalProviderSettings = Schema.Struct({
   providers: Schema.optionalKey(
     Schema.Struct({
@@ -740,6 +745,7 @@ const make = Effect.gen(function* () {
 
   const loadSettingsFromDisk = Effect.gen(function* () {
     let settings = DEFAULT_SERVER_SETTINGS;
+    let legacyWorktreeDirectory = "";
     let persisted: typeof PersistedOptionalProviderSettings.Type = {};
     // A file that failed to decode must stay on disk for the user to repair;
     // the fold below only writes when it started from the file's real contents.
@@ -764,6 +770,10 @@ const make = Effect.gen(function* () {
         }
       } else {
         settings = decoded.value;
+        const legacy = decodeLegacyWorktreeSettingsJsonExit(raw);
+        if (legacy._tag === "Success") {
+          legacyWorktreeDirectory = legacy.value.worktreeBaseDirectory?.trim() ?? "";
+        }
       }
     }
 
@@ -819,9 +829,19 @@ const make = Effect.gen(function* () {
     const loaded = foldProviderInstanceEnabledFlags(
       restoreUsedProviders(settings, persisted, providerHistory),
     );
-    const folded = settingsFileTrusted
-      ? foldLegacyProjectSettings(loaded, legacyProjectRows)
+    // Retire the fork's old setting without losing its location or overriding a newer choice.
+    const worktreeMigrated = legacyWorktreeDirectory
+      ? {
+          ...loaded,
+          worktreesDirectory: loaded.worktreesDirectory || legacyWorktreeDirectory,
+          previousWorktreesDirectories: [
+            ...new Set([...loaded.previousWorktreesDirectories, legacyWorktreeDirectory]),
+          ],
+        }
       : loaded;
+    const folded = settingsFileTrusted
+      ? foldLegacyProjectSettings(worktreeMigrated, legacyProjectRows)
+      : worktreeMigrated;
     // Only rewrite a file that decoded cleanly; an untrusted one stays for the user to repair.
     const migrated = settingsFileTrusted ? yield* moveInlineBitbucketTokens(folded) : folded;
     if (migrated !== loaded) {

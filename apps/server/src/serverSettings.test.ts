@@ -35,6 +35,7 @@ import { resolveProviderInstanceTerminalEnvironment } from "./terminal/Manager.t
 const decodeSettingsPatch = Schema.decodeUnknownEffect(ServerSettingsPatch);
 const decodeServerSettings = Schema.decodeUnknownEffect(ServerSettings);
 const decodeServerSettingsJson = Schema.decodeUnknownEffect(Schema.fromJsonString(ServerSettings));
+const encodeSettingsFixtureJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const layerServerSettings = () =>
   ServerSettingsModule.layer.pipe(
@@ -97,6 +98,37 @@ const recordProviderUsage = (provider: string, instanceId: string | null = provi
   });
 
 it.layer(NodeServices.layer)("server settings", (it) => {
+  it.effect.each(["", "/new/worktrees"])(
+    "migrates the fork's worktree folder with current setting %s",
+    (current) =>
+      Effect.gen(function* () {
+        const config = yield* ServerConfig.ServerConfig;
+        const fs = yield* FileSystem.FileSystem;
+        const service = yield* ServerSettingsModule.ServerSettingsService;
+        yield* fs.writeFileString(
+          config.settingsPath,
+          yield* encodeSettingsFixtureJson({
+            worktreeBaseDirectory: " ~/old/worktrees ",
+            worktreesDirectory: current,
+            previousWorktreesDirectories: ["/prior/worktrees", "~/old/worktrees"],
+            enableAgentBrowserAccess: false,
+          }),
+        );
+        const settings = yield* service.getSettings;
+        assert.equal(settings.worktreesDirectory, current || "~/old/worktrees");
+        assert.deepEqual(settings.previousWorktreesDirectories, [
+          "/prior/worktrees",
+          "~/old/worktrees",
+        ]);
+        assert.isFalse(settings.enableAgentBrowserAccess);
+        const raw = yield* fs.readFileString(config.settingsPath);
+        assert.notInclude(raw, "worktreeBaseDirectory");
+        const saved = yield* decodeServerSettingsJson(raw);
+        assert.equal(saved.worktreesDirectory, settings.worktreesDirectory);
+        assert.deepEqual(saved.previousWorktreesDirectories, settings.previousWorktreesDirectories);
+      }).pipe(Effect.provide(layerServerSettings())),
+  );
+
   it.effect("migrates saved token delivery to paragraph buffering without resetting settings", () =>
     Effect.gen(function* () {
       const config = yield* ServerConfig.ServerConfig;
