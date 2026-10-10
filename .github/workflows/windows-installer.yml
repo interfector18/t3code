@@ -48,6 +48,11 @@ jobs:
             runner: ubuntu-24.04
             target: AppImage
             rust_target: x86_64-unknown-linux-gnu
+          - platform: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
+            target: AppImage
+            rust_target: aarch64-unknown-linux-gnu
     timeout-minutes: 60
     env:
       T3CODE_DESKTOP_UPDATE_REPOSITORY: ${{ github.repository }}
@@ -155,20 +160,27 @@ jobs:
           set -euo pipefail
           test -f release/nightly.yml
           test -f release/nightly-linux.yml
+          test -f release/nightly-linux-arm64.yml
           shopt -s nullglob
           installers=(release/*-arm64.exe)
           blockmaps=(release/*-arm64.exe.blockmap)
-          appimages=(release/*-x86_64.AppImage)
-          debs=(release/*.deb)
+          x64_appimages=(release/*-x86_64.AppImage)
+          arm64_appimages=(release/*-arm64.AppImage)
+          x64_debs=(release/*-amd64.deb)
+          arm64_debs=(release/*-arm64.deb)
           test "${#installers[@]}" -eq 1
           test "${#blockmaps[@]}" -eq 1
-          test "${#appimages[@]}" -eq 1
-          test "${#debs[@]}" -eq 1
+          test "${#x64_appimages[@]}" -eq 1
+          test "${#arm64_appimages[@]}" -eq 1
+          test "${#x64_debs[@]}" -eq 1
+          test "${#arm64_debs[@]}" -eq 1
           gh release create "v${BUILD_VERSION}" \
-            "${installers[@]}" "${blockmaps[@]}" "${appimages[@]}" "${debs[@]}" \
-            release/nightly.yml release/nightly-linux.yml \
+            "${installers[@]}" "${blockmaps[@]}" \
+            "${x64_appimages[@]}" "${arm64_appimages[@]}" \
+            "${x64_debs[@]}" "${arm64_debs[@]}" \
+            release/nightly.yml release/nightly-linux.yml release/nightly-linux-arm64.yml \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Desktop ${BUILD_VERSION}" \
-            --notes "Windows ARM64 and Linux x64 builds from commit ${GITHUB_SHA}. Native Windows backend; WSL runtime is not bundled." \
+            --notes "Windows ARM64, Linux x64 and Linux ARM64 builds from commit ${GITHUB_SHA}. Native Windows backend; WSL runtime is not bundled." \
             --prerelease
