@@ -136,6 +136,8 @@ An empty database is a bad test. Seed your worktree's `.t3` with a copy of real 
 
 For authorized mobile verification, a missing or outdated native client is an install step, not a blocker. Run `vp run mobile:install <ios|android> [device-id]` on the device host before starting Metro; it targets the only booted simulator or connected Android device when the id is omitted. It installs the dev client for this checkout's native fingerprint from the shared cache in seconds and builds only when no machine has built it yet, so prefer it over `expo run:*`, `xcodebuild`, or `gradlew`, which rebuild from scratch. Its stdout is one JSON line; build output goes to the log it names. See `test-t3-mobile` for the full workflow.
 
+For fork release parties, read [the fleet release gate](docs/operations/release.md#fork-release-parties-fleet-diagnostics-gate) before deployment or activation. It governs all four machines, deferred restarts, launcher regeneration, and diagnostics verification.
+
 ## Pull requests
 
 - Never make a PR unless the developer explicitly asks you to do so.
