@@ -136,6 +136,8 @@ An empty database is a bad test. Seed your worktree's `.t3` with a copy of real 
 
 For authorized mobile verification, a missing or outdated native client is a build step, not a blocker. Run `node scripts/mobile-native-client.ts ensure <ios|android> <device-id>` on the simulator host before starting Metro. It checks the local Expo fingerprint and builds/installs when needed. See `test-t3-mobile` for the full workflow.
 
+For fork release parties, read [the fleet release gate](docs/operations/release.md#fork-release-parties-fleet-diagnostics-gate) before deployment or activation. It governs all four machines, deferred restarts, launcher regeneration, and diagnostics verification.
+
 ## Pull requests
 
 - Never make a PR unless the developer explicitly asks you to do so.

@@ -648,6 +648,80 @@ Checklist:
    - release job uploads expected files
 5. Smoke test downloaded artifacts.
 
+## Fork release parties: fleet diagnostics gate
+
+The personal fork's rollout includes **Scar**, **zenbook-a16**, **mini-elite**, and
+**mjolnir** on every release party, including small rebases. CI publication or a
+downloaded AppImage proves availability, not activation or working diagnostics.
+
+1. Inventory all four hosts before and after deployment. Record the installed
+   artifact version/hash and the versions of **running** desktop and server
+   processes, their PIDs/start times, and the selected next-start runtime. Read
+   versions from the running executable's packaged `resources/app.asar/package.json`,
+   not just the checkout, symlink, service status, or release tag. Distinguish
+   auto-update availability, installed files, and active processes. Zenbook is
+   ARM64 with a desktop-managed server: inspect that server, never start a second.
+2. Confirm current restart authorization per environment. An earlier release's
+   permission is not a new authorization, and an explicit deferral remains in
+   force. Preserve active turns. Installing files or changing a next-start
+   selector without activation is **staged, verification pending**. Scar's shared
+   AppImage affects both the next desktop launch and the next headless launch;
+   verify each running process separately after activation.
+3. Maintain the custom headless launchers on Scar, mini-elite, and mjolnir from
+   [`scripts/install-headless-launcher.ts`](../../scripts/install-headless-launcher.ts).
+   Deploy this source to each host's
+   `~/.local/opt/t3code/managed/install-headless-launcher.ts`, run it with Node to
+   regenerate `~/.local/bin/t3`, then run it with `--check`. Keep the deployed
+   source for local regeneration as well as the versioned repository source.
+   It backs up recognized old launchers, preserves each host's runtime selection
+   behavior, and never restarts anything. Inspect an unrecognized launcher before
+   changing it. Use this source for future setup/deployment generators; do not
+   recreate an untracked shell template in release scripts.
+
+   After selecting `runtime`, every generated launcher must export:
+
+   ```sh
+   export T3CODE_RESOURCE_MONITOR_PATH="$runtime/resources/resource-monitor/t3-resource-monitor"
+   ```
+
+   Verify the selected binary is a regular executable and that the variable
+   survives `exec` into the server. Derive it from the selected runtime on every
+   launch, never a version/hash directory. Keep `ELECTRON_RUN_AS_NODE` and existing
+   arguments intact. Check the real extraction, updater handoff, and rollback
+   selections, not only the new artifact; each needs its own executable collector.
+   Neither `runtime.py` nor updater hooks may regenerate a collector-less launcher.
+   Run the focused executable regression:
+   `vp test run scripts/install-headless-launcher.test.ts`.
+
+4. After an authorized activation, verify the server PID/version, its inherited
+   collector path, an actual collector child, and healthy native telemetry with a
+   fresh sample (`health.native.status`, `lastSampleAt`, and `lastError`). Inspect
+   the current PID's journal for exact startup/protocol errors. HTTP 200 or an
+   executable installed on disk alone does not pass this gate. An unchanged old
+   process cannot prove the new launcher's environment reached the server.
+5. Through **Zenbook's existing saved connection**, verify every environment
+   supplies a current CPU/memory sample and resource history gains samples while
+   Diagnostics stays open. Compare timestamps/sequences or counts across multiple
+   sample intervals. Use existing authenticated SSH/API access where possible;
+   ask the user for the existing-app UI check when it cannot prove that client
+   path. Do not create another browser session or mint a replacement connection.
+   The collector intentionally stops timed sampling without live Diagnostics
+   subscribers; a closed Diagnostics view is not a history-growth test.
+6. Check **Traces independently**: inspect the active build's trace configuration,
+   trace-level environment, trace file presence/size/mtime, read errors, and the
+   trace diagnostics result through the existing connection. Report disabled
+   tracing, absent files, and read/permission errors distinctly. A missing resource
+   collector does not establish why Traces is empty. Do not enable tracing as an
+   unrequested workaround or claim it fixed from resource samples alone.
+7. Preserve data, environment identities, saved connections, permissions, and
+   device settings. Use existing grants; never blanket-upgrade permissions to
+   make diagnostics pass. Do not alter live databases or create parallel servers.
+8. Report every host as **passed**, **failed** (with the exact error), or
+   **pending restart**. Include incomplete client/Traces checks explicitly as
+   verification pending even when server-side checks passed. A deferred update
+   remains **staged, verification pending** until its new server actually runs.
+   Do not call the rollout fully verified while any required check is pending.
+
 ## 5) Troubleshooting
 
 - macOS build unsigned when expected signed:
