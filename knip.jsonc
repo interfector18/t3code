@@ -34,6 +34,7 @@
         "verify-windows-desktop-artifact.ts",
         "install-managed-linux.ts",
         "install-headless-launcher.ts",
+        "build-android-preview.ts",
       ],
       "ignoreDependencies": ["agent-device", "esbuild"],
       // The `t3` npm package's files: copied into the package, never imported.
