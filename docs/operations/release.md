@@ -654,19 +654,36 @@ The personal fork's rollout includes **Scar**, **zenbook-a16**, **mini-elite**, 
 **mjolnir** on every release party, including small rebases. CI publication or a
 downloaded AppImage proves availability, not activation or working diagnostics.
 
-Scar, mini-elite, and mjolnir use the same managed Linux installation. The
+Scar, mini-elite, and mjolnir retain the same managed Linux desktop installation. The
 persistent `~/.local/opt/t3code/managed/T3-Code.AppImage` supplies both desktop and
-headless server; `runtime.py` caches its extraction by content hash. Regenerate
+legacy headless server until it is migrated; `runtime.py` caches desktop extraction
+by content hash. Migrated servers use upstream's native boot-service launcher and
+fork CLI archives, independently of the desktop AppImage. The persistent marker
+`~/.local/opt/t3code/managed/server-mode` contains `boot-service`; their selected
+server version lives in `~/.t3/runtime/service-state.json`. Regenerate
 their service, updater watcher, and desktop/headless launchers from
 [`scripts/install-managed-linux.ts`](../../scripts/install-managed-linux.ts),
 deployed beside `install-headless-launcher.ts` in each host's managed directory.
-The installer backs up replaced files and links but never changes the AppImage,
-starts a server, or restarts a service. Run it with `--check` after installation.
+The installer honors that marker, leaving the upstream-owned service unit and
+disabled legacy updater watcher alone. It backs up replaced files and links but
+never changes the AppImage, starts a server, or restarts a service. Run it with
+`--check` after installation.
+
+The managed generator also retains the native service's network/no-browser
+drop-in. Upstream `t3 service install` owns the main unit and leaves this drop-in
+intact, so repairs must not reset the server's port, host, PATH, or private umask.
+To bootstrap an existing legacy host, back up its unit/launcher configuration,
+stop the legacy watcher and server after obtaining restart authorization, and
+take an integrity-checked stopped-database snapshot. Run the verified fork native
+CLI's `service install --base-dir ~/.t3` with the drop-in in place, write the
+`boot-service` marker, then regenerate/check the managed installation. Leave the
+old AppImage/runtime and migration backup available for recovery. Prove a later
+release can update through the existing client RPC before migrating more hosts.
 Do not use the legacy snapshot desktop installer for these managed hosts.
 
 Do not select fleet server builds with `systemctl --user set-environment
 T3CODE_SERVER_RUNTIME=...`: that setting disappears on reboot. The managed
-AppImage is the persistent selection. For a deferred release, cache the new
+AppImage is the legacy shared-runtime selection only. For a deferred legacy release, cache the new
 image/runtime only; do not replace the watched AppImage. With activation
 authorized, stop `t3code-runtime.path` and its refresh service, back up and
 atomically replace the managed AppImage, regenerate/check the installation,
@@ -676,10 +693,20 @@ desktop updater replaces the image. Keep `~/.t3` and existing rollback artifacts
 untouched. Verify future launches select the managed image without a manager
 environment override, as well as verifying the newly running process.
 
+For migrated servers, use Settings → Environments to activate a newer fork
+release through the existing authorized update RPC. CI must publish the Linux
+CLI archives and `SHA256SUMS` alongside desktop assets before the release becomes
+available. The managed launcher preflights candidates, supervises handoff, and
+rolls back failed trials. Never re-enable `t3code-runtime.path` on these hosts:
+desktop auto-updates must not restart or select the independent server. A deferred
+server update remains deferred until activation is authorized.
+
 1. Inventory all four hosts before and after deployment. Record the installed
    artifact version/hash and the versions of **running** desktop and server
    processes, their PIDs/start times, and the selected next-start runtime. Read
-   versions from the running executable's packaged `resources/app.asar/package.json`,
+   desktop versions from the running executable's packaged `resources/app.asar/package.json`,
+   and native server versions from the actual `/proc/<pid>/exe --version` plus
+   launcher service state (not just the CLI wrapper or systemd's parent PID),
    not just the checkout, symlink, service status, or release tag. Distinguish
    auto-update availability, installed files, and active processes. Zenbook is
    ARM64 with a desktop-managed server: inspect that server, never start a second.
@@ -713,6 +740,13 @@ environment override, as well as verifying the newly running process.
    Neither `runtime.py` nor updater hooks may regenerate a collector-less launcher.
    Run the focused executable regression:
    `vp test run scripts/install-headless-launcher.test.ts scripts/install-managed-linux.test.ts`.
+
+   Native CLI archives instead place the collector at
+   `$runtime/resource-monitor/linux-<arch>/t3-resource-monitor`. Both the persistent
+   CLI wrapper and `apps/server/src/serviceLauncher.ts` derive that path from the
+   selected runtime and check that it is a regular executable. Each trial and
+   rollback child gets its own override, replacing any stale parent value.
+   Run `vp test run src/serviceLauncher.test.ts` from `apps/server` as well.
 
 4. After an authorized activation, verify the server PID/version, its inherited
    collector path, an actual collector child, and healthy native telemetry with a
