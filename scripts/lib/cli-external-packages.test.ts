@@ -30,6 +30,15 @@ type PackageManifest = typeof PackageManifest.Type;
 const decodeManifest = Schema.decodeUnknownSync(Schema.fromJsonString(PackageManifest));
 
 describe("shouldBundleCliDependency", () => {
+  it("bundles Undici imports while retaining the disk copy required by Cursor", () => {
+    assert.strictEqual(shouldBundleCliDependency("undici"), true);
+    assert.strictEqual(shouldBundleCliDependency("undici/lib/api/index.js"), true);
+    assert.strictEqual(isRuntimeExternalCliDependency("undici"), true);
+    assert.deepStrictEqual(selectCliRuntimeExternalDependencies({ undici: "7.28.0" }), {
+      undici: "7.28.0",
+    });
+  });
+
   it("leaves native addons and their dlopen wrappers external", () => {
     for (const id of [
       "node-pty",

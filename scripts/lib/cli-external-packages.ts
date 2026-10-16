@@ -1,4 +1,4 @@
-/** Keep bundler externals and staged runtime dependency roots aligned. */
+/** Bundler externals and dependencies loaded from disk by runtime packages. */
 // Filesystem-loaded externals need dependencies outside the bundle.
 const CLI_RUNTIME_EXTERNAL_PREFIXES = [
   // Cursor ships computed Webpack imports and platform helper packages.
@@ -43,6 +43,8 @@ export function isRuntimeExternalCliDependency(id: string): boolean {
 
 /** Use neverBundle: false from alwaysBundle means no opinion and leaves transitive packages bundled. */
 export function isExternalCliDependency(id: string): boolean {
+  // Effect imports Undici through ESM; SEA must bundle it, while Cursor still needs its disk copy.
+  if (id === "undici" || id.startsWith("undici/")) return false;
   return isRuntimeExternalCliDependency(id);
 }
 
