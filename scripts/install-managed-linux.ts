@@ -84,6 +84,15 @@ UMask=0077
 WantedBy=default.target
 `;
   return [
+    ...(bootService
+      ? [
+          {
+            path: ".config/systemd/user/t3code.service.d/90-managed-server.conf",
+            content: `[Service]\nEnvironment=PATH=${home}/.local/bin:/usr/local/bin:/usr/bin:/bin\nEnvironment=T3CODE_HOST=0.0.0.0\nEnvironment=T3CODE_PORT=3773\nEnvironment=T3CODE_NO_BROWSER=true\nUMask=0077\nTimeoutStopSec=90\n`,
+            mode: 0o600,
+          },
+        ]
+      : []),
     {
       path: ".local/bin/t3",
       content: bootService ? renderBootServiceLauncher() : renderHeadlessLauncher("shared"),
