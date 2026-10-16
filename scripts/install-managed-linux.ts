@@ -228,6 +228,7 @@ export async function installManagedLinuxFiles(home: string, check = false) {
     const temporary = `${file.destination}.next-${process.pid}`;
     try {
       await NodeFSP.writeFile(temporary, file.content, { flag: "wx", mode: file.mode });
+      await NodeFSP.chmod(temporary, file.mode);
       await NodeFSP.rename(temporary, file.destination);
     } finally {
       await NodeFSP.rm(temporary, { force: true });

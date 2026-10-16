@@ -19,6 +19,21 @@ async function fixture(run: (home: string) => Promise<void>) {
   }
 }
 
+it("retains explicit generated-file modes when installed under a private umask", async () => {
+  await fixture(async (home) => {
+    const module = new URL("./install-managed-linux.ts", import.meta.url).href;
+    const program = `const {installManagedLinuxFiles} = await import(${JSON.stringify(module)}); process.umask(0o077); await installManagedLinuxFiles(${JSON.stringify(home)});`;
+    const child = NodeChildProcess.spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", program],
+      { encoding: "utf8" },
+    );
+    assert.equal(child.status, 0, child.stderr);
+    assert.isFalse((await installManagedLinuxFiles(home, true)).changed);
+    assert.equal((await NodeFSP.stat(`${home}/.local/bin/t3`)).mode & 0o777, 0o755);
+  });
+});
+
 it("backs up the old snapshot launcher without following its link and is idempotent", async () => {
   await fixture(async (home) => {
     const image = `${home}/snapshot.AppImage`,
