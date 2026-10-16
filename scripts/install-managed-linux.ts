@@ -5,7 +5,7 @@ import * as NodePath from "node:path";
 import * as NodeOS from "node:os";
 import * as NodeURL from "node:url";
 
-import { renderHeadlessLauncher } from "./install-headless-launcher.ts";
+import { renderBootServiceLauncher, renderHeadlessLauncher } from "./install-headless-launcher.ts";
 
 const runtimePython = `#!/usr/bin/env python3
 """Extract the managed AppImage once; desktop and server share this persistent selection."""
@@ -56,13 +56,16 @@ exec "$managed/T3-Code.AppImage" "$@"
 const refreshRuntime = `#!/bin/sh
 set -eu
 managed="$HOME/.local/opt/t3code/managed"
+if test -f "$managed/server-mode" && test "$(cat "$managed/server-mode")" = boot-service; then
+    exit 0
+fi
 # The updater unlinks before renaming; its next file event retries an absent image.
 test -f "$managed/T3-Code.AppImage"
 python3 "$managed/runtime.py" >/dev/null
 systemctl --user try-restart t3code.service
 `;
 
-function filesFor(home: string) {
+function filesFor(home: string, bootService: boolean) {
   const managed = `${home}/.local/opt/t3code/managed`;
   const service = `[Unit]
 Description=T3 Code headless server
@@ -81,7 +84,20 @@ UMask=0077
 WantedBy=default.target
 `;
   return [
-    { path: ".local/bin/t3", content: renderHeadlessLauncher("shared"), mode: 0o755 },
+    ...(bootService
+      ? [
+          {
+            path: ".config/systemd/user/t3code.service.d/90-managed-server.conf",
+            content: `[Service]\nEnvironment=PATH=${home}/.local/bin:/usr/local/bin:/usr/bin:/bin\nEnvironment=T3CODE_HOST=0.0.0.0\nEnvironment=T3CODE_PORT=3773\nEnvironment=T3CODE_NO_BROWSER=true\nUMask=0077\nTimeoutStopSec=90\n`,
+            mode: 0o600,
+          },
+        ]
+      : []),
+    {
+      path: ".local/bin/t3",
+      content: bootService ? renderBootServiceLauncher() : renderHeadlessLauncher("shared"),
+      mode: 0o755,
+    },
     { path: ".local/bin/t3code", content: desktopLauncher, mode: 0o755 },
     { path: ".local/opt/t3code/managed/runtime.py", content: runtimePython, mode: 0o755 },
     { path: ".local/opt/t3code/managed/refresh-runtime", content: refreshRuntime, mode: 0o755 },
@@ -140,7 +156,15 @@ MimeType=x-scheme-handler/t3code;
 `,
       mode: 0o644,
     },
-  ];
+  ].filter(
+    (file) =>
+      !bootService ||
+      ![
+        ".config/systemd/user/t3code.service",
+        ".config/systemd/user/t3code-runtime.path",
+        ".config/systemd/user/t3code-runtime-refresh.service",
+      ].includes(file.path),
+  );
 }
 
 /** Explicit host migration: back up replaced files/links; never select an image or start a service. */
@@ -151,7 +175,16 @@ export async function installManagedLinuxFiles(home: string, check = false) {
     );
   }
   const changes = [];
-  for (const file of filesFor(home)) {
+  const serverMode = await NodeFSP.readFile(
+    NodePath.join(home, ".local/opt/t3code/managed/server-mode"),
+    "utf8",
+  ).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return "shared";
+    throw error;
+  });
+  if (!["shared", "boot-service"].includes(serverMode.trim()))
+    throw new Error("Unrecognized managed server mode");
+  for (const file of filesFor(home, serverMode.trim() === "boot-service")) {
     const destination = NodePath.join(home, file.path);
     const stat = await NodeFSP.lstat(destination).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "ENOENT") throw error;
