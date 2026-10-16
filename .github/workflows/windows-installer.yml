@@ -208,4 +208,7 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "Desktop ${BUILD_VERSION}" \
             --notes "Windows ARM64, Linux x64 and Linux ARM64 desktop builds, plus Linux x64/ARM64 server archives and checksums from commit ${GITHUB_SHA}. Native Windows backend; WSL runtime is not bundled." \
-            --prerelease
+            --prerelease --draft
+          # Discovery skips drafts; do not offer an update until every archive,
+          # checksum and desktop feed has finished uploading.
+          gh release edit "v${BUILD_VERSION}" --repo "$GITHUB_REPOSITORY" --draft=false
