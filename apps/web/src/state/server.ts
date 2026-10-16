@@ -20,7 +20,7 @@ import { AsyncResult, Atom } from "effect/reactivity";
 import { environmentCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { environmentAtomList } from "./environmentAtomList";
-import { primaryEnvironmentIdAtom } from "./primaryEnvironment";
+import { primaryEnvironmentIdAtom, themeEnvironmentIdAtom } from "./primaryEnvironment";
 import { environmentSession } from "./session";
 import { reuseProvidersIgnoringCheckedAt } from "./serverProviders.logic";
 
@@ -120,9 +120,14 @@ export const primaryServerAvailableEditorsAtom = Atom.make(
 
 const EMPTY_ENVIRONMENT_THEMES: ReadonlyArray<EnvironmentTheme> = [];
 
+const themeServerConfigAtom = Atom.make((get): ServerConfig | null => {
+  const environmentId = get(themeEnvironmentIdAtom);
+  return environmentId === null ? null : get(serverEnvironment.configValueAtom(environmentId));
+}).pipe(Atom.withLabel("web-theme-server-config"));
+
 export const primaryServerEnvironmentThemesAtom = Atom.make(
   (get): ReadonlyArray<EnvironmentTheme> =>
-    get(primaryServerConfigAtom)?.environmentThemes ?? EMPTY_ENVIRONMENT_THEMES,
+    get(themeServerConfigAtom)?.environmentThemes ?? EMPTY_ENVIRONMENT_THEMES,
 ).pipe(Atom.withLabel("web-primary-server-environment-themes"));
 
 /** Providers for views that do not show `checkedAt`; see {@link reuseProvidersIgnoringCheckedAt}. */
@@ -134,3 +139,8 @@ export const providersIgnoringCheckedAtAtom = Atom.family((environmentId: Enviro
     ),
   ).pipe(Atom.withLabel(`web-providers-ignoring-checked-at:${environmentId}`)),
 );
+
+/** The anchoring machine's settings, for its `t3 theme set` default. */
+export const themeServerSettingsAtom = Atom.make(
+  (get): ServerSettings => get(themeServerConfigAtom)?.settings ?? DEFAULT_SERVER_SETTINGS,
+).pipe(Atom.withLabel("web-theme-server-settings"));
