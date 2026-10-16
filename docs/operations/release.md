@@ -668,6 +668,17 @@ The installer honors that marker, leaving the upstream-owned service unit and
 disabled legacy updater watcher alone. It backs up replaced files and links but
 never changes the AppImage, starts a server, or restarts a service. Run it with
 `--check` after installation.
+
+The managed generator also retains the native service's network/no-browser
+drop-in. Upstream `t3 service install` owns the main unit and leaves this drop-in
+intact, so repairs must not reset the server's port, host, PATH, or private umask.
+To bootstrap an existing legacy host, back up its unit/launcher configuration,
+stop the legacy watcher and server after obtaining restart authorization, and
+take an integrity-checked stopped-database snapshot. Run the verified fork native
+CLI's `service install --base-dir ~/.t3` with the drop-in in place, write the
+`boot-service` marker, then regenerate/check the managed installation. Leave the
+old AppImage/runtime and migration backup available for recovery. Prove a later
+release can update through the existing client RPC before migrating more hosts.
 Do not use the legacy snapshot desktop installer for these managed hosts.
 
 Do not select fleet server builds with `systemctl --user set-environment
