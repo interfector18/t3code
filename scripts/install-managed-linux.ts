@@ -4,8 +4,9 @@ import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
 import * as NodeOS from "node:os";
 import * as NodeURL from "node:url";
+import * as NodeChildProcess from "node:child_process";
 
-import { renderHeadlessLauncher } from "./install-headless-launcher.ts";
+import { renderBootServiceLauncher, renderHeadlessLauncher } from "./install-headless-launcher.ts";
 
 const runtimePython = `#!/usr/bin/env python3
 """Extract the managed AppImage once; desktop and server share this persistent selection."""
@@ -37,32 +38,47 @@ with (cache / '.extract.lock').open('a') as lock:
             if temporary.exists():
                 shutil.rmtree(temporary)
     print(destination / 'squashfs-root')
+cleanup = root / 'cleanup-managed-linux.py'
+if cleanup.is_file():
+    subprocess.run(['python3', str(cleanup)], stdout=subprocess.DEVNULL, check=False)
 `;
 
-const desktopLauncher = `#!/bin/sh
+const desktopLauncher = (desktopOnly: boolean) => `#!/bin/sh
 set -eu
 managed="$HOME/.local/opt/t3code/managed"
 unset ELECTRON_RUN_AS_NODE
-export T3CODE_HOME="$HOME/.t3"
+${
+  desktopOnly
+    ? ""
+    : `export T3CODE_HOME="$HOME/.t3"
 systemctl --user start t3code.service
 if test -f "$managed/local-session.json"; then
     helper="$(python3 "$managed/helper-runtime.py")"
     "$helper/t3code"
 fi
+`
+}\
+python3 "$managed/cleanup-managed-linux.py" >/dev/null || true
 export APPIMAGE_EXTRACT_AND_RUN=1
+export APPIMAGELAUNCHER_DISABLE=1
 exec "$managed/T3-Code.AppImage" "$@"
 `;
 
 const refreshRuntime = `#!/bin/sh
 set -eu
 managed="$HOME/.local/opt/t3code/managed"
+if test -f "$managed/server-mode" && test "$(cat "$managed/server-mode")" = boot-service; then
+    exit 0
+fi
 # The updater unlinks before renaming; its next file event retries an absent image.
 test -f "$managed/T3-Code.AppImage"
 python3 "$managed/runtime.py" >/dev/null
 systemctl --user try-restart t3code.service
 `;
 
-function filesFor(home: string) {
+function filesFor(home: string, mode: string, cleanupPython: string) {
+  const bootService = mode === "boot-service";
+  const desktopOnly = mode === "desktop-only";
   const managed = `${home}/.local/opt/t3code/managed`;
   const service = `[Unit]
 Description=T3 Code headless server
@@ -81,8 +97,26 @@ UMask=0077
 WantedBy=default.target
 `;
   return [
-    { path: ".local/bin/t3", content: renderHeadlessLauncher("shared"), mode: 0o755 },
-    { path: ".local/bin/t3code", content: desktopLauncher, mode: 0o755 },
+    {
+      path: ".local/opt/t3code/managed/cleanup-managed-linux.py",
+      content: cleanupPython,
+      mode: 0o755,
+    },
+    ...(bootService
+      ? [
+          {
+            path: ".config/systemd/user/t3code.service.d/90-managed-server.conf",
+            content: `[Service]\nEnvironment=PATH=${home}/.local/bin:/usr/local/bin:/usr/bin:/bin\nEnvironment=T3CODE_HOST=0.0.0.0\nEnvironment=T3CODE_PORT=3773\nEnvironment=T3CODE_NO_BROWSER=true\nUMask=0077\nTimeoutStopSec=90\n`,
+            mode: 0o600,
+          },
+        ]
+      : []),
+    {
+      path: ".local/bin/t3",
+      content: bootService ? renderBootServiceLauncher() : renderHeadlessLauncher("shared"),
+      mode: 0o755,
+    },
+    { path: ".local/bin/t3code", content: desktopLauncher(desktopOnly), mode: 0o755 },
     { path: ".local/opt/t3code/managed/runtime.py", content: runtimePython, mode: 0o755 },
     { path: ".local/opt/t3code/managed/refresh-runtime", content: refreshRuntime, mode: 0o755 },
     { path: ".config/systemd/user/t3code.service", content: service, mode: 0o644 },
@@ -115,8 +149,8 @@ ExecStart=${managed}/refresh-runtime
       path: ".local/share/applications/t3code-local.desktop",
       content: `[Desktop Entry]
 Type=Application
-Name=T3 Code (Fork Nightly)
-Comment=T3 Code using the local background server
+Name=T3 Code (${desktopOnly ? "Nightly" : "Fork Nightly"})
+Comment=${desktopOnly ? "Desktop GUI for coding agents" : "T3 Code using the local background server"}
 Exec=${home}/.local/bin/t3code %U
 Icon=${home}/.local/share/icons/hicolor/1024x1024/apps/t3code-local.png
 Terminal=false
@@ -131,7 +165,7 @@ MimeType=x-scheme-handler/t3code;
       content: `[Desktop Entry]
 Type=Application
 Name=T3 Code (Nightly)
-Exec="${managed}/T3-Code.AppImage" %U
+Exec=env APPIMAGELAUNCHER_DISABLE=1 ${managed}/T3-Code.AppImage %U
 Icon=${home}/.local/share/icons/com.t3tools.T3Code.desktop.png
 Terminal=false
 NoDisplay=true
@@ -140,7 +174,21 @@ MimeType=x-scheme-handler/t3code;
 `,
       mode: 0o644,
     },
-  ];
+  ].filter((file) =>
+    desktopOnly
+      ? [
+          ".local/bin/t3code",
+          ".local/share/applications/t3code-local.desktop",
+          ".local/share/applications/com.t3tools.T3Code.desktop",
+          ".local/opt/t3code/managed/cleanup-managed-linux.py",
+        ].includes(file.path)
+      : !bootService ||
+        ![
+          ".config/systemd/user/t3code.service",
+          ".config/systemd/user/t3code-runtime.path",
+          ".config/systemd/user/t3code-runtime-refresh.service",
+        ].includes(file.path),
+  );
 }
 
 /** Explicit host migration: back up replaced files/links; never select an image or start a service. */
@@ -151,7 +199,20 @@ export async function installManagedLinuxFiles(home: string, check = false) {
     );
   }
   const changes = [];
-  for (const file of filesFor(home)) {
+  const serverMode = await NodeFSP.readFile(
+    NodePath.join(home, ".local/opt/t3code/managed/server-mode"),
+    "utf8",
+  ).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return "shared";
+    throw error;
+  });
+  if (!["shared", "boot-service", "desktop-only"].includes(serverMode.trim()))
+    throw new Error("Unrecognized managed server mode");
+  const cleanupPython = await NodeFSP.readFile(
+    new URL("./cleanup-managed-linux.py", import.meta.url),
+    "utf8",
+  );
+  for (const file of filesFor(home, serverMode.trim(), cleanupPython)) {
     const destination = NodePath.join(home, file.path);
     const stat = await NodeFSP.lstat(destination).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "ENOENT") throw error;
@@ -195,6 +256,7 @@ export async function installManagedLinuxFiles(home: string, check = false) {
     const temporary = `${file.destination}.next-${process.pid}`;
     try {
       await NodeFSP.writeFile(temporary, file.content, { flag: "wx", mode: file.mode });
+      await NodeFSP.chmod(temporary, file.mode);
       await NodeFSP.rename(temporary, file.destination);
     } finally {
       await NodeFSP.rm(temporary, { force: true });
@@ -210,7 +272,12 @@ if (
   const args = process.argv.slice(2);
   if (args.length > 1 || args.some((arg) => arg !== "--check"))
     throw new Error("Usage: node install-managed-linux.ts [--check]");
-  console.log(
-    JSON.stringify(await installManagedLinuxFiles(NodeOS.homedir(), args.includes("--check"))),
-  );
+  const result = await installManagedLinuxFiles(NodeOS.homedir(), args.includes("--check"));
+  if (!args.includes("--check")) {
+    NodeChildProcess.execFileSync("python3", [
+      NodePath.join(NodeOS.homedir(), ".local/opt/t3code/managed/cleanup-managed-linux.py"),
+    ]);
+    result.backupDirectory = null;
+  }
+  console.log(JSON.stringify(result));
 }
