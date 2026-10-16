@@ -1,7 +1,7 @@
 name: Desktop installers
 
 # Personal fork builds use native Windows. WSL needs a separately built Linux
-# CLI archive; this workflow deliberately does not bundle one.
+# CLI archive; this workflow publishes Linux server archives separately.
 on:
   push:
     branches: [main]
@@ -120,13 +120,34 @@ jobs:
       - name: Build installer
         run: vp run dist:desktop:artifact --platform "${{ matrix.platform }}" --target "${{ matrix.target }}" --arch "${{ matrix.arch }}" --verbose
 
+      - name: Build Linux server executable
+        if: matrix.platform == 'linux'
+        env:
+          VP_NODE_VERSION: "26.8.2"
+        run: node apps/server/scripts/cli.ts build-exe --verbose
+
+      - name: Package and verify Linux server archive
+        if: matrix.platform == 'linux'
+        shell: bash
+        env:
+          BUILD_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          monitor_dir="$RUNNER_TEMP/cli-resource-monitor/linux-${{ matrix.arch }}"
+          mkdir -p "$monitor_dir"
+          cp "native/resource-monitor/target/${{ matrix.rust_target }}/release/t3-resource-monitor" "$monitor_dir/"
+          node scripts/build-cli-archive.ts \
+            --platform linux --arch "${{ matrix.arch }}" --version "$BUILD_VERSION" \
+            --resource-monitor-dir "$RUNNER_TEMP/cli-resource-monitor" --output-dir release-cli
+          node scripts/smoke-cli-archive.ts --archive release-cli/*.tar.gz --expect-version "$BUILD_VERSION"
+
       - name: Collect update assets
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p update-assets
           shopt -s nullglob
-          assets=(release/*.exe release/*.exe.blockmap release/*.AppImage release/*.deb release/nightly*.yml)
+          assets=(release/*.exe release/*.exe.blockmap release/*.AppImage release/*.deb release/nightly*.yml release-cli/*.tar.gz)
           test "${#assets[@]}" -gt 0
           cp "${assets[@]}" update-assets/
 
@@ -174,13 +195,17 @@ jobs:
           test "${#arm64_appimages[@]}" -eq 1
           test "${#x64_debs[@]}" -eq 1
           test "${#arm64_debs[@]}" -eq 1
+          server_archives=(release/t3-*-linux-x64.tar.gz release/t3-*-linux-arm64.tar.gz)
+          test "${#server_archives[@]}" -eq 2
+          (cd release && sha256sum t3-*-linux-*.tar.gz > SHA256SUMS)
           gh release create "v${BUILD_VERSION}" \
             "${installers[@]}" "${blockmaps[@]}" \
             "${x64_appimages[@]}" "${arm64_appimages[@]}" \
             "${x64_debs[@]}" "${arm64_debs[@]}" \
+            "${server_archives[@]}" release/SHA256SUMS \
             release/nightly.yml release/nightly-linux.yml release/nightly-linux-arm64.yml \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Desktop ${BUILD_VERSION}" \
-            --notes "Windows ARM64, Linux x64 and Linux ARM64 builds from commit ${GITHUB_SHA}. Native Windows backend; WSL runtime is not bundled." \
+            --notes "Windows ARM64, Linux x64 and Linux ARM64 desktop builds, plus Linux x64/ARM64 server archives and checksums from commit ${GITHUB_SHA}. Native Windows backend; WSL runtime is not bundled." \
             --prerelease

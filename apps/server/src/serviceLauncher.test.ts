@@ -4,10 +4,11 @@ import type * as NodeChildProcess from "node:child_process";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import { SERVER_EXIT_CODE_STATE_DIR_OWNED } from "@t3tools/contracts";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { vi } from "vite-plus/test";
+import { expect, vi } from "vite-plus/test";
 
 import {
   databaseBackupBlocker,
@@ -115,8 +116,22 @@ const writeFakeRuntime = (
 ) =>
   Effect.gen(function* () {
     const entryPath = path.join(versionDir, "t3");
+    const platform = yield* HostProcess.Platform;
+    const architecture = yield* HostProcess.Architecture;
     yield* fs.makeDirectory(versionDir, { recursive: true });
-    yield* fs.writeFileString(entryPath, `#!${process.execPath}\n${childSource}`);
+    const collector = path.join(
+      versionDir,
+      "resource-monitor",
+      `${platform}-${architecture}`,
+      platform === "win32" ? "t3-resource-monitor.exe" : "t3-resource-monitor",
+    );
+    yield* fs.makeDirectory(path.dirname(collector), { recursive: true });
+    yield* fs.writeFileString(collector, "fixture collector\n");
+    yield* fs.chmod(collector, 0o755);
+    yield* fs.writeFileString(
+      entryPath,
+      `#!${process.execPath}\nif (process.env.T3CODE_RESOURCE_MONITOR_PATH !== ${JSON.stringify(collector)}) throw new Error("wrong collector runtime");\n${childSource}`,
+    );
     yield* fs.chmod(entryPath, 0o755);
     yield* fs.writeFileString(
       path.join(versionDir, ".install-complete"),
@@ -126,6 +141,26 @@ const writeFakeRuntime = (
   });
 
 it.layer(NodeServices.layer)("service state persistence", (it) => {
+  it.effect("refuses to start a runtime whose native collector is missing", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-service-no-collector-" });
+      const versionDir = path.join(root, "runtime", "versions", "1.0.0");
+      yield* writeFakeRuntime(fs, path, versionDir, "throw new Error('server must not start');");
+      yield* fs.remove(path.join(versionDir, "resource-monitor"), { recursive: true });
+      const before = spawnedChildren.length;
+      const launcher = new Launcher(root, {
+        protocol: SERVICE_LAUNCHER_PROTOCOL,
+        activeVersion: "1.0.0",
+      });
+      yield* Effect.promise(async () => {
+        await expect(launcher.run()).rejects.toThrow(/ENOENT.*resource-monitor/);
+      });
+      assert.equal(spawnedChildren.length, before);
+    }),
+  );
+
   it.effect("durably replaces and strictly reads one state document", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
