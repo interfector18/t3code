@@ -126,7 +126,11 @@ describe("DesktopPreReadyPlatform", () => {
 
   it.effect.each([
     { previousEntry: undefined, label: "missing" },
-    { previousEntry: 'Exec="/Applications/deleted-previous.AppImage" %U', label: "stale" },
+    {
+      previousEntry:
+        'Exec=env APPIMAGELAUNCHER_DISABLE=1 "/Applications/deleted-previous.AppImage" %U',
+      label: "stale",
+    },
   ])("prepares a $label Linux desktop entry before startup yields", ({ previousEntry }) => {
     vi.stubEnv("VITE_DEV_SERVER_URL", "");
     getSwitchValueMock.mockReturnValue("");
@@ -168,7 +172,10 @@ describe("DesktopPreReadyPlatform", () => {
         );
         const identity = yield* Effect.promise(() => portalIdentity);
         assert.equal(identity.desktopName, "com.t3tools.T3Code.desktop");
-        assert.include(identity.desktopEntry ?? "", "Exec=/Applications/current.AppImage %U");
+        assert.include(
+          identity.desktopEntry ?? "",
+          "Exec=env APPIMAGELAUNCHER_DISABLE=1 /Applications/current.AppImage %U",
+        );
         assert.include(identity.desktopEntry ?? "", "Name=T3 Code (Beta)");
         assert.include(identity.desktopEntry ?? "", "MimeType=x-scheme-handler/t3code;");
         assert.include(
@@ -220,7 +227,10 @@ describe("DesktopPreReadyPlatform", () => {
               ? [["T3-Code-x86_64.AppImage", "/Applications/T3-Code-0.1.8-x86_64.AppImage"]]
               : [],
           );
-          assert.include(files.get(entryPath), "Exec=/Applications/T3-Code-x86_64.AppImage %U");
+          assert.include(
+            files.get(entryPath),
+            "Exec=env APPIMAGELAUNCHER_DISABLE=1 /Applications/T3-Code-x86_64.AppImage %U",
+          );
         }),
       ).pipe(Effect.ensuring(Effect.sync(() => vi.unstubAllEnvs())));
     },
@@ -247,7 +257,7 @@ describe("DesktopPreReadyPlatform", () => {
         const entry = writeFileSyncMock.mock.calls.find(
           ([path]) => path === "/xdg/applications/com.t3tools.T3Code.desktop",
         )?.[1];
-        assert.include(entry, 'Exec="/opt/T3 Code/t3code" %U');
+        assert.include(entry, 'Exec=env APPIMAGELAUNCHER_DISABLE=1 "/opt/T3 Code/t3code" %U');
       }),
     ).pipe(Effect.ensuring(Effect.sync(() => vi.unstubAllEnvs())));
   });
