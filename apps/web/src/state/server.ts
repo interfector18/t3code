@@ -18,7 +18,7 @@ import { AsyncResult, Atom } from "effect/reactivity";
 
 import { environmentCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
-import { primaryEnvironmentIdAtom } from "./primaryEnvironment";
+import { primaryEnvironmentIdAtom, themeEnvironmentIdAtom } from "./primaryEnvironment";
 import { environmentSession } from "./session";
 
 // Opted in for every environment, not just the primary one. Only the primary
@@ -117,12 +117,22 @@ export const primaryServerAvailableEditorsAtom = Atom.make(
 
 const EMPTY_ENVIRONMENT_THEMES: ReadonlyArray<EnvironmentTheme> = [];
 
+const themeServerConfigAtom = Atom.make((get): ServerConfig | null => {
+  const environmentId = get(themeEnvironmentIdAtom);
+  return environmentId === null ? null : get(serverEnvironment.configValueAtom(environmentId));
+}).pipe(Atom.withLabel("web-theme-server-config"));
+
 /**
- * Palettes published by the primary environment's machine. Only the primary
- * environment: a client follows the machine it is anchored to, not every
- * environment it happens to be connected to.
+ * Palettes published by the machine this client is anchored to (see
+ * `themeEnvironmentIdAtom`), not by every environment it happens to be
+ * connected to.
  */
 export const primaryServerEnvironmentThemesAtom = Atom.make(
   (get): ReadonlyArray<EnvironmentTheme> =>
-    get(primaryServerConfigAtom)?.environmentThemes ?? EMPTY_ENVIRONMENT_THEMES,
+    get(themeServerConfigAtom)?.environmentThemes ?? EMPTY_ENVIRONMENT_THEMES,
 ).pipe(Atom.withLabel("web-primary-server-environment-themes"));
+
+/** The anchoring machine's settings, for its `t3 theme set` default. */
+export const themeServerSettingsAtom = Atom.make(
+  (get): ServerSettings => get(themeServerConfigAtom)?.settings ?? DEFAULT_SERVER_SETTINGS,
+).pipe(Atom.withLabel("web-theme-server-settings"));

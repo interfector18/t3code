@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react";
 import { useEffect } from "react";
 
-import { primaryEnvironmentIdAtom } from "../state/primaryEnvironment";
-import { primaryServerSettingsAtom } from "../state/server";
+import { themeEnvironmentIdAtom } from "../state/primaryEnvironment";
+import { themeServerSettingsAtom } from "../state/server";
 import { getThemeDefinition, singleAppearanceOf } from "../themePalette";
 import { useEnvironmentThemeDefinitions } from "./useEnvironmentTheme";
 import { useTheme } from "./useTheme";
@@ -71,8 +71,8 @@ function writeAppliedGeneration(storageKey: string, generation: string): void {
  * resolve yet — the setting and the palette it names arrive independently.
  */
 export function useDefaultThemeAdoption(): void {
-  const environmentId = useAtomValue(primaryEnvironmentIdAtom);
-  const settings = useAtomValue(primaryServerSettingsAtom);
+  const environmentId = useAtomValue(themeEnvironmentIdAtom);
+  const settings = useAtomValue(themeServerSettingsAtom);
   const { defaultTheme, defaultThemeSetAt } = settings;
   const { setTheme, setAppearanceMode } = useTheme();
   // Re-runs adoption when a late-arriving published theme makes the
