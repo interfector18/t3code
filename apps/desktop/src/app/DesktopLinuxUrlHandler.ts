@@ -86,7 +86,7 @@ export function renderUrlHandlerDesktopEntry(input: {
     "[Desktop Entry]",
     "Type=Application",
     `Name=${escapeDesktopEntryString(input.displayName)}`,
-    `Exec=${escapeUrlHandlerExecTarget(input.execTarget)} %U`,
+    `Exec=env APPIMAGELAUNCHER_DISABLE=1 ${escapeUrlHandlerExecTarget(input.execTarget)} %U`,
     ...(input.iconPath === undefined ? [] : [`Icon=${escapeDesktopEntryString(input.iconPath)}`]),
     "Terminal=false",
     "NoDisplay=true",
@@ -97,7 +97,7 @@ export function renderUrlHandlerDesktopEntry(input: {
 }
 
 function parseUrlHandlerExecTarget(entry: string): string | null {
-  const exec = /^Exec=(.*) %U$/mu.exec(entry)?.[1];
+  const exec = /^Exec=(?:env APPIMAGELAUNCHER_DISABLE=1 )?(.*) %U$/mu.exec(entry)?.[1];
   if (exec === undefined) return null;
   const unescaped = exec.replace(/\\([\\nrt])/gu, (_, char: string) =>
     char === "n" ? "\n" : char === "r" ? "\r" : char === "t" ? "\t" : char,
