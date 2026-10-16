@@ -39,12 +39,48 @@ export function renderHeadlessLauncher(selection: RuntimeSelection): string {
   );
 }
 
+export function renderBootServiceLauncher(): string {
+  return `#!/bin/sh
+set -eu
+export T3CODE_HOME="\${T3CODE_HOME:-$HOME/.t3}"
+runtime="$(python3 - "$T3CODE_HOME" <<'PY'
+import json
+from pathlib import Path
+import re
+import sys
+root = Path(sys.argv[1])
+version = json.loads((root / 'runtime/service-state.json').read_text())['activeVersion']
+if not isinstance(version, str) or not re.fullmatch(r'[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?', version):
+    raise SystemExit('Invalid selected server version')
+runtime = root / 'runtime/versions' / version
+if (runtime / '.install-complete').read_text().strip() != version:
+    raise SystemExit('Selected runtime is incomplete')
+print(runtime)
+PY
+)"
+case "$(uname -m)" in
+  x86_64) platform=linux-x64 ;;
+  aarch64|arm64) platform=linux-arm64 ;;
+  *) printf 'Unsupported server architecture\\n' >&2; exit 1 ;;
+esac
+export T3CODE_RESOURCE_MONITOR_PATH="$runtime/resource-monitor/$platform/t3-resource-monitor"
+if ! test -f "$T3CODE_RESOURCE_MONITOR_PATH" || ! test -x "$T3CODE_RESOURCE_MONITOR_PATH"; then
+  printf 'Resource monitor is missing or not executable: %s\\n' "$T3CODE_RESOURCE_MONITOR_PATH" >&2
+  exit 1
+fi
+unset ELECTRON_RUN_AS_NODE T3CODE_SERVER_RUNTIME
+exec "$runtime/t3" "$@"
+`;
+}
+
 /** Upgrade only our known launcher forms; preserve custom runtime selection. Never restart. */
 export async function installHeadlessLauncher(homeDirectory: string, check = false) {
   const launcher = NodePath.join(homeDirectory, ".local/bin/t3");
   if (!(await NodeFSP.lstat(launcher)).isFile())
     throw new Error(`Not a regular launcher: ${launcher}`);
   const original = await NodeFSP.readFile(launcher, "utf8");
+  if (original === renderBootServiceLauncher())
+    return { launcher, selection: "boot-service", changed: false };
   const selection = (["shared", "override"] as const).find(
     (candidate) =>
       original === legacyLauncher(candidate) || original === renderHeadlessLauncher(candidate),
