@@ -669,6 +669,28 @@ The personal fork's rollout includes **Scar**, **zenbook-a16**, **mini-elite**, 
 **mjolnir** on every release party, including small rebases. CI publication or a
 downloaded AppImage proves availability, not activation or working diagnostics.
 
+Scar, mini-elite, and mjolnir use the same managed Linux installation. The
+persistent `~/.local/opt/t3code/managed/T3-Code.AppImage` supplies both desktop and
+headless server; `runtime.py` caches its extraction by content hash. Regenerate
+their service, updater watcher, and desktop/headless launchers from
+[`scripts/install-managed-linux.ts`](../../scripts/install-managed-linux.ts),
+deployed beside `install-headless-launcher.ts` in each host's managed directory.
+The installer backs up replaced files and links but never changes the AppImage,
+starts a server, or restarts a service. Run it with `--check` after installation.
+Do not use the legacy snapshot desktop installer for these managed hosts.
+
+Do not select fleet server builds with `systemctl --user set-environment
+T3CODE_SERVER_RUNTIME=...`: that setting disappears on reboot. The managed
+AppImage is the persistent selection. For a deferred release, cache the new
+image/runtime only; do not replace the watched AppImage. With activation
+authorized, stop `t3code-runtime.path` and its refresh service, back up and
+atomically replace the managed AppImage, regenerate/check the installation,
+reload systemd, clear any legacy runtime override, re-enable the watcher, and
+restart `t3code.service`. The watcher otherwise refreshes the server when the
+desktop updater replaces the image. Keep `~/.t3` and existing rollback artifacts
+untouched. Verify future launches select the managed image without a manager
+environment override, as well as verifying the newly running process.
+
 1. Inventory all four hosts before and after deployment. Record the installed
    artifact version/hash and the versions of **running** desktop and server
    processes, their PIDs/start times, and the selected next-start runtime. Read
@@ -678,10 +700,9 @@ downloaded AppImage proves availability, not activation or working diagnostics.
    ARM64 with a desktop-managed server: inspect that server, never start a second.
 2. Confirm current restart authorization per environment. An earlier release's
    permission is not a new authorization, and an explicit deferral remains in
-   force. Preserve active turns. Installing files or changing a next-start
-   selector without activation is **staged, verification pending**. Scar's shared
-   AppImage affects both the next desktop launch and the next headless launch;
-   verify each running process separately after activation.
+   force. Preserve active turns. Cached files without activation are **staged,
+   verification pending**. Each managed AppImage affects both desktop and
+   headless launches; verify each running process separately after activation.
 3. Maintain the custom headless launchers on Scar, mini-elite, and mjolnir from
    [`scripts/install-headless-launcher.ts`](../../scripts/install-headless-launcher.ts).
    Deploy this source to each host's
@@ -706,7 +727,7 @@ downloaded AppImage proves availability, not activation or working diagnostics.
    selections, not only the new artifact; each needs its own executable collector.
    Neither `runtime.py` nor updater hooks may regenerate a collector-less launcher.
    Run the focused executable regression:
-   `vp test run scripts/install-headless-launcher.test.ts`.
+   `vp test run scripts/install-headless-launcher.test.ts scripts/install-managed-linux.test.ts`.
 
 4. After an authorized activation, verify the server PID/version, its inherited
    collector path, an actual collector child, and healthy native telemetry with a
