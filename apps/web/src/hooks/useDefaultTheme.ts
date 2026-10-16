@@ -1,6 +1,6 @@
 import { appAtomRegistry } from "../rpc/atomRegistry";
-import { primaryEnvironmentIdAtom } from "../state/primaryEnvironment";
-import { primaryServerSettingsAtom } from "../state/server";
+import { themeEnvironmentIdAtom } from "../state/primaryEnvironment";
+import { themeServerSettingsAtom } from "../state/server";
 import { getThemeDefinition, singleAppearanceOf, subscribeToCustomThemes } from "../themePalette";
 import { setAppearanceMode, setTheme } from "./useTheme";
 
@@ -45,9 +45,9 @@ function writeAppliedGeneration(storageKey: string, generation: string): void {
 
 function adoptDefaultTheme(): void {
   if (typeof window === "undefined") return;
-  const environmentId = appAtomRegistry.get(primaryEnvironmentIdAtom);
+  const environmentId = appAtomRegistry.get(themeEnvironmentIdAtom);
   if (environmentId === null) return;
-  const { defaultTheme, defaultThemeSetAt } = appAtomRegistry.get(primaryServerSettingsAtom);
+  const { defaultTheme, defaultThemeSetAt } = appAtomRegistry.get(themeServerSettingsAtom);
   const definition = getThemeDefinition(defaultTheme);
   const storageKey = `${APPLIED_DEFAULT_THEME_STORAGE_PREFIX}${environmentId}`;
   const generation = defaultThemeToApply({
@@ -75,8 +75,8 @@ function adoptDefaultTheme(): void {
  */
 export function startDefaultThemeAdoption(): () => void {
   const unsubscribes = [
-    appAtomRegistry.subscribe(primaryEnvironmentIdAtom, adoptDefaultTheme),
-    appAtomRegistry.subscribe(primaryServerSettingsAtom, adoptDefaultTheme),
+    appAtomRegistry.subscribe(themeEnvironmentIdAtom, adoptDefaultTheme),
+    appAtomRegistry.subscribe(themeServerSettingsAtom, adoptDefaultTheme),
     subscribeToCustomThemes(adoptDefaultTheme),
   ];
   adoptDefaultTheme();
