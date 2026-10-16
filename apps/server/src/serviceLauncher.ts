@@ -572,6 +572,25 @@ export class Launcher {
     }
     if (this.#stopping) return;
     const paths = runtimePaths(this.#baseDir, version);
+    // oxlint-disable-next-line t3code/no-global-process-runtime -- Standalone supervisor intentionally has no Effect runtime.
+    const platform = process.platform;
+    // oxlint-disable-next-line t3code/no-global-process-runtime -- Same native architecture as the supervised executable.
+    const architecture = process.arch;
+    // Parent launchers outlive their server version. Never inherit the previous
+    // runtime's collector override when activating a candidate or rolling back.
+    const collector = NodePath.join(
+      paths.versionDir,
+      "resource-monitor",
+      `${platform}-${architecture}`,
+      platform === "win32" ? "t3-resource-monitor.exe" : "t3-resource-monitor",
+    );
+    if (!(await NodeFSP.stat(collector)).isFile()) {
+      throw new Error(`Resource monitor is not a regular file: ${collector}`);
+    }
+    await NodeFSP.access(
+      collector,
+      platform === "win32" ? NodeFS.constants.F_OK : NodeFS.constants.X_OK,
+    );
     const context: ServiceLauncherContext = {
       protocol: SERVICE_LAUNCHER_PROTOCOL,
       childVersion: version,
@@ -579,7 +598,11 @@ export class Launcher {
     };
     const spawnArguments = runtimeSpawnArguments(paths);
     const child = NodeChildProcess.spawn(spawnArguments.command, spawnArguments.args, {
-      env: { ...this.#environment, [SERVICE_LAUNCHER_CONTEXT_ENV]: JSON.stringify(context) },
+      env: {
+        ...this.#environment,
+        T3CODE_RESOURCE_MONITOR_PATH: collector,
+        [SERVICE_LAUNCHER_CONTEXT_ENV]: JSON.stringify(context),
+      },
       stdio: ["inherit", "inherit", "inherit", "ipc"],
     });
     await new Promise<void>((resolve, reject) => {
