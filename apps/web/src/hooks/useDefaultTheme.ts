@@ -1,8 +1,8 @@
 import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useSyncExternalStore } from "react";
 
-import { primaryEnvironmentIdAtom } from "../state/primaryEnvironment";
-import { primaryServerSettingsAtom } from "../state/server";
+import { themeEnvironmentIdAtom } from "../state/primaryEnvironment";
+import { themeServerSettingsAtom } from "../state/server";
 import { getThemeDefinition, singleAppearanceOf, subscribeToCustomThemes } from "../themePalette";
 import { useTheme } from "./useTheme";
 
@@ -49,8 +49,8 @@ function writeAppliedGeneration(storageKey: string, generation: string): void {
 }
 
 export function useDefaultThemeAdoption(): void {
-  const environmentId = useAtomValue(primaryEnvironmentIdAtom);
-  const settings = useAtomValue(primaryServerSettingsAtom);
+  const environmentId = useAtomValue(themeEnvironmentIdAtom);
+  const settings = useAtomValue(themeServerSettingsAtom);
   const { defaultTheme, defaultThemeSetAt } = settings;
   const { setTheme, setAppearanceMode } = useTheme();
   // Re-read when published or custom palettes change, so a theme that resolves late still applies.
