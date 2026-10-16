@@ -758,6 +758,45 @@ environment override, as well as verifying the newly running process.
    remains **staged, verification pending** until its new server actually runs.
    Do not call the rollout fully verified while any required check is pending.
 
+## Fork Android preview delivery
+
+For personal fork release parties, use this script instead of ad-hoc native
+build/signing commands. Delivery to the sync folder is not proof of installation:
+report the APK as ready to sync until the phone's in-place update is confirmed.
+
+Run `./scripts/build-android-preview.sh --check` for a read-only toolchain/signing
+preflight, then `./scripts/build-android-preview.sh` to build the ARM64 release preview.
+The Bash entry point adds repository-local tools to PATH; no global `vp` install
+or manual `node_modules/.bin` PATH setup is needed. It also works from another
+working directory when invoked by its absolute path.
+Java 21 and the Android SDK must be installed; `JAVA_HOME` and `ANDROID_HOME`
+override the local defaults. This does not require or install onto a connected
+phone, change Syncthing settings, or publish to GitHub.
+
+The default delivery path is `~/Synced/Android-T3`, a convenience symlink to the
+real directory `~/Data/Phone/Sync Folder/Apps/t3` in the existing phone sync folder.
+Keep real files inside that sync folder: Syncthing syncs symlinks but does not
+follow them. No separate Syncthing folder is needed. Override the output location
+with `--output-dir /absolute/path` if necessary. Publication resolves symlinks
+before staging files so atomic renames stay on the destination filesystem. The script
+atomically replaces `T3-Code-Preview.apk` only after verifying its package,
+version and existing preview signer. `latest.json` records the build identity
+and checksum. Wait for synchronization to finish, open the APK on the phone,
+and approve an in-place update; do not uninstall the existing app.
+
+The signing key is backed up privately under
+`~/.local/share/t3code/android-preview-signing/`, never in the synchronized
+folder. Preserve it and the monotonic build counter under
+`~/.local/state/t3code/android-preview/`; do not generate a replacement key or
+reset the counter when rebasing. Each build reserves a new version code, so
+failed builds can leave harmless gaps. A build lock prevents concurrent native
+builds from mixing their outputs; inspect a leftover lock before removing it.
+
+These personal fork builds disable the upstream Expo OTA endpoint. Compatible
+fork OTA delivery can be configured separately; changing that configuration
+requires installing a newly built APK first. Ordinary upstream/EAS profiles
+are unchanged by these build-script-specific environment overrides.
+
 ## 5) Troubleshooting
 
 - macOS build unsigned when expected signed:
