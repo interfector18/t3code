@@ -2,6 +2,7 @@ import type { ExpoConfig } from "expo/config";
 
 import { BRAND_ASSET_PATHS } from "../../scripts/lib/brand-assets.ts";
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
+import { androidVersionCode } from "../../scripts/lib/android-preview.ts";
 
 type AppVariant = "development" | "preview" | "production";
 
@@ -279,6 +280,9 @@ const config: ExpoConfig = {
   android: {
     icon: variant.assets.appIcon,
     package: variant.androidPackage,
+    ...(repoEnv.T3CODE_ANDROID_VERSION_CODE === undefined
+      ? {}
+      : { versionCode: androidVersionCode(repoEnv.T3CODE_ANDROID_VERSION_CODE) }),
     ...(repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE
       ? { googleServicesFile: repoEnv.T3CODE_ANDROID_GOOGLE_SERVICES_FILE }
       : {}),
