@@ -97,6 +97,13 @@ it("retains boot-service ownership and selects the collector across updates, reg
       encoding: "utf8",
     });
     assert.equal(refresh.status, 0, refresh.stderr);
+    const dropin = `${home}/.config/systemd/user/t3code.service.d/90-managed-server.conf`;
+    const configured = await NodeFSP.readFile(dropin, "utf8");
+    assert.include(configured, "Environment=T3CODE_PORT=3773\n");
+    assert.include(configured, "Environment=T3CODE_NO_BROWSER=true\n");
+    await NodeFSP.rm(dropin);
+    await installManagedLinuxFiles(home);
+    assert.equal(await NodeFSP.readFile(dropin, "utf8"), configured);
     for (const version of ["1.0.0", "1.1.0", "1.0.0"]) {
       const root = `${home}/.t3/runtime`;
       const runtime = `${root}/versions/${version}`;
