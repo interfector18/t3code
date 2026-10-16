@@ -8,6 +8,7 @@ import * as NodeChildProcess from "node:child_process";
 import * as NodeAssert from "node:assert/strict";
 
 import { installManagedLinuxFiles } from "./install-managed-linux.ts";
+import { installHeadlessLauncher } from "./install-headless-launcher.ts";
 
 async function fixture(run: (home: string) => Promise<void>) {
   const home = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-managed-"));
@@ -79,5 +80,66 @@ it("fresh launches follow the managed image across updates and rollback, ignorin
         `${home}/.t3`,
       ]);
     }
+  });
+});
+
+it("retains boot-service ownership and selects the collector across updates, regeneration and rollback", async () => {
+  await fixture(async (home) => {
+    const managed = `${home}/.local/opt/t3code/managed`;
+    await NodeFSP.mkdir(managed, { recursive: true });
+    await NodeFSP.writeFile(`${managed}/server-mode`, "boot-service\n");
+    await installManagedLinuxFiles(home);
+    const unit = `${home}/.config/systemd/user/t3code.service`;
+    await NodeFSP.mkdir(NodePath.dirname(unit), { recursive: true });
+    await NodeFSP.writeFile(unit, "upstream-owned boot service");
+    const refresh = NodeChildProcess.spawnSync("sh", [`${managed}/refresh-runtime`], {
+      env: { ...process.env, HOME: home },
+      encoding: "utf8",
+    });
+    assert.equal(refresh.status, 0, refresh.stderr);
+    const dropin = `${home}/.config/systemd/user/t3code.service.d/90-managed-server.conf`;
+    const configured = await NodeFSP.readFile(dropin, "utf8");
+    assert.include(configured, "Environment=T3CODE_PORT=3773\n");
+    assert.include(configured, "Environment=T3CODE_NO_BROWSER=true\n");
+    await NodeFSP.rm(dropin);
+    await installManagedLinuxFiles(home);
+    assert.equal(await NodeFSP.readFile(dropin, "utf8"), configured);
+    for (const version of ["1.0.0", "1.1.0", "1.0.0"]) {
+      const root = `${home}/.t3/runtime`;
+      const runtime = `${root}/versions/${version}`;
+      // oxlint-disable-next-line t3code/no-global-process-runtime -- Shell fixture runs on this host outside an Effect runtime.
+      const collector = `${runtime}/resource-monitor/${NodeOS.platform()}-${NodeOS.arch()}/t3-resource-monitor`;
+      await NodeFSP.mkdir(NodePath.dirname(collector), { recursive: true });
+      await NodeFSP.writeFile(collector, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+      await NodeFSP.writeFile(`${runtime}/.install-complete`, `${version}\n`);
+      await NodeFSP.writeFile(
+        `${root}/service-state.json`,
+        JSON.stringify({ activeVersion: version }),
+      );
+      await NodeFSP.writeFile(
+        `${runtime}/t3`,
+        '#!/bin/sh\nprintf "%s\\n" "$T3CODE_RESOURCE_MONITOR_PATH" "$@"\n',
+        { mode: 0o755 },
+      );
+      await installManagedLinuxFiles(home);
+      await installHeadlessLauncher(home, true);
+      assert.equal(await NodeFSP.readFile(unit, "utf8"), "upstream-owned boot service");
+      const run = () =>
+        NodeChildProcess.spawnSync("sh", [`${home}/.local/bin/t3`, "--version"], {
+          env: {
+            ...process.env,
+            HOME: home,
+            T3CODE_HOME: `${home}/.t3`,
+            T3CODE_RESOURCE_MONITOR_PATH: "/stale/collector",
+          },
+          encoding: "utf8",
+        });
+      assert.equal(run().status, 0);
+      assert.deepEqual(run().stdout.trim().split("\n"), [collector, "--version"]);
+      await NodeFSP.chmod(collector, 0o644);
+      assert.notEqual(run().status, 0);
+      await NodeFSP.chmod(collector, 0o755);
+    }
+    assert.isFalse((await installManagedLinuxFiles(home, true)).changed);
   });
 });
