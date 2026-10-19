@@ -171,7 +171,7 @@ describe("DesktopLinuxUrlHandler", () => {
     assert.include(entry, "Name=T3 Code (Nightly)");
     assert.include(
       entry,
-      'Exec="/home/al ice/Apps/T3 \\\\"100%%\\\\" \\\\$HOME\\\\\\\\x.AppImage" %U',
+      'Exec=env APPIMAGELAUNCHER_DISABLE=1 "/home/al ice/Apps/T3 \\\\"100%%\\\\" \\\\$HOME\\\\\\\\x.AppImage" %U',
     );
     assert.include(entry, "NoDisplay=true");
     assert.notInclude(entry, "StartupWMClass=");
@@ -182,11 +182,11 @@ describe("DesktopLinuxUrlHandler", () => {
   it.each([
     {
       execTarget: "/opt/T3(beta)/t3code.AppImage",
-      execLine: 'Exec="/opt/T3(beta)/t3code.AppImage" %U',
+      execLine: 'Exec=env APPIMAGELAUNCHER_DISABLE=1 "/opt/T3(beta)/t3code.AppImage" %U',
     },
     {
       execTarget: "/opt/t3%20code/t3code.AppImage",
-      execLine: "Exec=/opt/t3%%20code/t3code.AppImage %U",
+      execLine: "Exec=env APPIMAGELAUNCHER_DISABLE=1 /opt/t3%%20code/t3code.AppImage %U",
     },
   ])("renders the handler Exec line for $execTarget", ({ execTarget, execLine }) => {
     const entry = DesktopLinuxUrlHandler.renderUrlHandlerDesktopEntry({
@@ -241,7 +241,7 @@ describe("DesktopLinuxUrlHandler", () => {
         );
         assert.include(
           recorded.files[0]?.content,
-          "Exec=/home/alice/Applications/T3-Code.AppImage %U",
+          "Exec=env APPIMAGELAUNCHER_DISABLE=1 /home/alice/Applications/T3-Code.AppImage %U",
         );
         assert.include(recorded.files[0]?.content, "MimeType=x-scheme-handler/t3code;");
         assert.deepEqual(recorded.commands, [

@@ -654,6 +654,11 @@ The personal fork's rollout includes **Scar**, **zenbook-a16**, **mini-elite**, 
 **mjolnir** on every release party, including small rebases. CI publication or a
 downloaded AppImage proves availability, not activation or working diagnostics.
 
+The owner has standing authorization for release-party pushes of verified rebased
+`main` to the personal fork with an explicit `--force-with-lease`; do not ask again
+unless that authorization is revoked or the scope changes. Server activation and
+restarts remain user-driven through the existing UI, not authorized by a push.
+
 Scar, mini-elite, and mjolnir retain the same managed Linux desktop installation. The
 persistent `~/.local/opt/t3code/managed/T3-Code.AppImage` supplies both desktop and
 legacy headless server until it is migrated; `runtime.py` caches desktop extraction
@@ -668,6 +673,11 @@ The installer honors that marker, leaving the upstream-owned service unit and
 disabled legacy updater watcher alone. It backs up replaced files and links but
 never changes the AppImage, starts a server, or restarts a service. Run it with
 `--check` after installation.
+
+Zenbook uses the same generator with `server-mode` set to `desktop-only`; it
+regenerates only desktop launchers, never a headless launcher or service. Desktop
+launchers and URL-handler entries pass `APPIMAGELAUNCHER_DISABLE=1` so
+AppImageLauncher does not offer to move the updater-managed AppImage.
 
 The managed generator also retains the native service's network/no-browser
 drop-in. Upstream `t3 service install` owns the main unit and leaves this drop-in

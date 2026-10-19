@@ -19,6 +19,53 @@ async function fixture(run: (home: string) => Promise<void>) {
   }
 }
 
+it.each(["shared", "boot-service", "desktop-only"])(
+  "%s desktop shortcuts suppress AppImageLauncher through exec after regeneration",
+  async (mode) => {
+    await fixture(async (home) => {
+      const managed = `${home}/.local/opt/t3code/managed`;
+      await NodeFSP.mkdir(managed, { recursive: true });
+      await NodeFSP.writeFile(`${managed}/server-mode`, mode);
+      await installManagedLinuxFiles(home);
+      if (mode === "desktop-only") {
+        await NodeAssert.rejects(NodeFSP.stat(`${home}/.local/bin/t3`), { code: "ENOENT" });
+        await NodeAssert.rejects(NodeFSP.stat(`${home}/.config/systemd/user/t3code.service`), {
+          code: "ENOENT",
+        });
+      }
+      const bin = `${home}/test-bin`;
+      await NodeFSP.mkdir(bin);
+      await NodeFSP.writeFile(`${bin}/systemctl`, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+      await NodeFSP.writeFile(
+        `${managed}/T3-Code.AppImage`,
+        '#!/bin/sh\ntest "$APPIMAGELAUNCHER_DISABLE" = 1 || exit 42\nprintf "%s\\n" "$@"\n',
+        { mode: 0o755 },
+      );
+      for (const file of ["t3code-local.desktop", "com.t3tools.T3Code.desktop"]) {
+        await installManagedLinuxFiles(home);
+        const entry = await NodeFSP.readFile(`${home}/.local/share/applications/${file}`, "utf8");
+        const command = entry.split("\n").find((line) => line.startsWith("Exec="));
+        assert.isDefined(command);
+        const result = NodeChildProcess.spawnSync(
+          "sh",
+          ["-c", `${command!.slice(5).replace("%U", '"$@"')}`, "shortcut", "t3code://test/path"],
+          {
+            env: {
+              ...process.env,
+              HOME: home,
+              PATH: `${bin}:${process.env.PATH}`,
+              APPIMAGELAUNCHER_DISABLE: "",
+            },
+            encoding: "utf8",
+          },
+        );
+        assert.equal(result.status, 0, `${file}: ${result.stderr}`);
+        assert.equal(result.stdout.trim(), "t3code://test/path");
+      }
+    });
+  },
+);
+
 it("retains explicit generated-file modes when installed under a private umask", async () => {
   await fixture(async (home) => {
     const module = new URL("./install-managed-linux.ts", import.meta.url).href;
