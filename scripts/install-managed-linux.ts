@@ -39,17 +39,23 @@ with (cache / '.extract.lock').open('a') as lock:
     print(destination / 'squashfs-root')
 `;
 
-const desktopLauncher = `#!/bin/sh
+const desktopLauncher = (desktopOnly: boolean) => `#!/bin/sh
 set -eu
 managed="$HOME/.local/opt/t3code/managed"
 unset ELECTRON_RUN_AS_NODE
-export T3CODE_HOME="$HOME/.t3"
+${
+  desktopOnly
+    ? ""
+    : `export T3CODE_HOME="$HOME/.t3"
 systemctl --user start t3code.service
 if test -f "$managed/local-session.json"; then
     helper="$(python3 "$managed/helper-runtime.py")"
     "$helper/t3code"
 fi
+`
+}\
 export APPIMAGE_EXTRACT_AND_RUN=1
+export APPIMAGELAUNCHER_DISABLE=1
 exec "$managed/T3-Code.AppImage" "$@"
 `;
 
@@ -65,7 +71,9 @@ python3 "$managed/runtime.py" >/dev/null
 systemctl --user try-restart t3code.service
 `;
 
-function filesFor(home: string, bootService: boolean) {
+function filesFor(home: string, mode: string) {
+  const bootService = mode === "boot-service";
+  const desktopOnly = mode === "desktop-only";
   const managed = `${home}/.local/opt/t3code/managed`;
   const service = `[Unit]
 Description=T3 Code headless server
@@ -98,7 +106,7 @@ WantedBy=default.target
       content: bootService ? renderBootServiceLauncher() : renderHeadlessLauncher("shared"),
       mode: 0o755,
     },
-    { path: ".local/bin/t3code", content: desktopLauncher, mode: 0o755 },
+    { path: ".local/bin/t3code", content: desktopLauncher(desktopOnly), mode: 0o755 },
     { path: ".local/opt/t3code/managed/runtime.py", content: runtimePython, mode: 0o755 },
     { path: ".local/opt/t3code/managed/refresh-runtime", content: refreshRuntime, mode: 0o755 },
     { path: ".config/systemd/user/t3code.service", content: service, mode: 0o644 },
@@ -131,8 +139,8 @@ ExecStart=${managed}/refresh-runtime
       path: ".local/share/applications/t3code-local.desktop",
       content: `[Desktop Entry]
 Type=Application
-Name=T3 Code (Fork Nightly)
-Comment=T3 Code using the local background server
+Name=T3 Code (${desktopOnly ? "Nightly" : "Fork Nightly"})
+Comment=${desktopOnly ? "Desktop GUI for coding agents" : "T3 Code using the local background server"}
 Exec=${home}/.local/bin/t3code %U
 Icon=${home}/.local/share/icons/hicolor/1024x1024/apps/t3code-local.png
 Terminal=false
@@ -147,7 +155,7 @@ MimeType=x-scheme-handler/t3code;
       content: `[Desktop Entry]
 Type=Application
 Name=T3 Code (Nightly)
-Exec="${managed}/T3-Code.AppImage" %U
+Exec=env APPIMAGELAUNCHER_DISABLE=1 "${managed}/T3-Code.AppImage" %U
 Icon=${home}/.local/share/icons/com.t3tools.T3Code.desktop.png
 Terminal=false
 NoDisplay=true
@@ -156,14 +164,19 @@ MimeType=x-scheme-handler/t3code;
 `,
       mode: 0o644,
     },
-  ].filter(
-    (file) =>
-      !bootService ||
-      ![
-        ".config/systemd/user/t3code.service",
-        ".config/systemd/user/t3code-runtime.path",
-        ".config/systemd/user/t3code-runtime-refresh.service",
-      ].includes(file.path),
+  ].filter((file) =>
+    desktopOnly
+      ? [
+          ".local/bin/t3code",
+          ".local/share/applications/t3code-local.desktop",
+          ".local/share/applications/com.t3tools.T3Code.desktop",
+        ].includes(file.path)
+      : !bootService ||
+        ![
+          ".config/systemd/user/t3code.service",
+          ".config/systemd/user/t3code-runtime.path",
+          ".config/systemd/user/t3code-runtime-refresh.service",
+        ].includes(file.path),
   );
 }
 
@@ -182,9 +195,9 @@ export async function installManagedLinuxFiles(home: string, check = false) {
     if (error.code === "ENOENT") return "shared";
     throw error;
   });
-  if (!["shared", "boot-service"].includes(serverMode.trim()))
+  if (!["shared", "boot-service", "desktop-only"].includes(serverMode.trim()))
     throw new Error("Unrecognized managed server mode");
-  for (const file of filesFor(home, serverMode.trim() === "boot-service")) {
+  for (const file of filesFor(home, serverMode.trim())) {
     const destination = NodePath.join(home, file.path);
     const stat = await NodeFSP.lstat(destination).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "ENOENT") throw error;
