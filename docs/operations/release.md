@@ -687,7 +687,10 @@ fork CLI archives, independently of the desktop AppImage. The persistent marker
 server version lives in `~/.t3/runtime/service-state.json`. Regenerate
 their service, updater watcher, and desktop/headless launchers from
 [`scripts/install-managed-linux.ts`](../../scripts/install-managed-linux.ts),
-deployed beside `install-headless-launcher.ts` in each host's managed directory.
+deployed beside `install-headless-launcher.ts` and `cleanup-managed-linux.py` in each
+host's managed directory. The installer and existing desktop/extraction launchers
+remove unused application builds and installation backups, preserving
+running/selected runtimes and database backups. Cleanup adds no service or timer.
 The installer honors that marker, leaving the upstream-owned service unit and
 disabled legacy updater watcher alone. It backs up replaced files and links but
 never changes the AppImage, starts a server, or restarts a service. Run it with

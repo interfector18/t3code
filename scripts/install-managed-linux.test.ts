@@ -19,6 +19,77 @@ async function fixture(run: (home: string) => Promise<void>) {
   }
 }
 
+it.each(["boot-service", "desktop-only"])(
+  "%s cleanup removes obsolete builds while retaining active artifacts and database backups",
+  async (mode) => {
+    await fixture(async (home) => {
+      const managed = `${home}/.local/opt/t3code/managed`;
+      await NodeFSP.mkdir(managed, { recursive: true });
+      await NodeFSP.writeFile(`${managed}/server-mode`, mode);
+      await installManagedLinuxFiles(home);
+      const image = "#!/bin/sh\nprintf app-opened\n";
+      const digest = NodeCrypto.createHash("sha256").update(image).digest("hex");
+      await NodeFSP.writeFile(`${managed}/T3-Code.AppImage`, image, { mode: 0o755 });
+      const paths = {
+        current: `${managed}/runtime/${digest}`,
+        running: `${home}/.local/opt/t3code/snapshots/111111111111`,
+        obsolete: `${home}/.local/opt/t3code/snapshots/222222222222`,
+        backup: `${managed}/installation-backup-old`,
+        databaseBackup: `${managed}/server-migration-backup-old`,
+        obsoleteNative: `${home}/.t3/runtime/versions/1.0.0`,
+        selectedNative: `${home}/.t3/runtime/versions/2.0.0`,
+      };
+      for (const path of Object.values(paths)) await NodeFSP.mkdir(path, { recursive: true });
+      await NodeFSP.writeFile(`${paths.databaseBackup}/statev2.sqlite`, "database backup");
+      await NodeFSP.writeFile(
+        `${home}/.t3/runtime/service-state.json`,
+        JSON.stringify({ activeVersion: "2.0.0" }),
+      );
+      for (const [path, version] of [
+        [paths.obsoleteNative, "1.0.0"],
+        [paths.selectedNative, "2.0.0"],
+      ]) {
+        await NodeFSP.writeFile(`${path}/.install-complete`, version!);
+        await NodeFSP.utimes(`${path}/.install-complete`, 1, 1);
+      }
+      const bin = `${home}/bin`;
+      await NodeFSP.mkdir(bin);
+      await NodeFSP.writeFile(`${bin}/systemctl`, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+      const result = NodeChildProcess.spawnSync("sh", [`${home}/.local/bin/t3code`], {
+        env: {
+          ...process.env,
+          HOME: home,
+          PATH: `${bin}:${process.env.PATH}`,
+          APPIMAGE: `${paths.running}/T3-Code.AppImage`,
+        },
+        encoding: "utf8",
+      });
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout, "app-opened");
+      for (const path of [
+        paths.current,
+        paths.running,
+        paths.databaseBackup,
+        paths.selectedNative,
+      ]) {
+        assert.isTrue((await NodeFSP.stat(path)).isDirectory(), path);
+      }
+      for (const path of [paths.obsolete, paths.backup, paths.obsoleteNative]) {
+        await NodeAssert.rejects(NodeFSP.stat(path), { code: "ENOENT" });
+      }
+      await NodeAssert.rejects(
+        NodeFSP.stat(`${home}/.config/systemd/user/t3code-build-cleanup.timer`),
+        { code: "ENOENT" },
+      );
+      await NodeAssert.rejects(
+        NodeFSP.stat(`${home}/.config/systemd/user/t3code-build-cleanup.service`),
+        { code: "ENOENT" },
+      );
+      assert.isFalse((await installManagedLinuxFiles(home, true)).changed);
+    });
+  },
+);
+
 it.each(["shared", "boot-service", "desktop-only"])(
   "%s desktop shortcuts suppress AppImageLauncher through exec after regeneration",
   async (mode) => {
