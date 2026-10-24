@@ -4,6 +4,7 @@ import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
 import * as NodeOS from "node:os";
 import * as NodeURL from "node:url";
+import * as NodeChildProcess from "node:child_process";
 
 import { renderBootServiceLauncher, renderHeadlessLauncher } from "./install-headless-launcher.ts";
 
@@ -37,6 +38,9 @@ with (cache / '.extract.lock').open('a') as lock:
             if temporary.exists():
                 shutil.rmtree(temporary)
     print(destination / 'squashfs-root')
+cleanup = root / 'cleanup-managed-linux.py'
+if cleanup.is_file():
+    subprocess.run(['python3', str(cleanup)], stdout=subprocess.DEVNULL, check=False)
 `;
 
 const desktopLauncher = (desktopOnly: boolean) => `#!/bin/sh
@@ -54,6 +58,7 @@ if test -f "$managed/local-session.json"; then
 fi
 `
 }\
+python3 "$managed/cleanup-managed-linux.py" >/dev/null || true
 export APPIMAGE_EXTRACT_AND_RUN=1
 export APPIMAGELAUNCHER_DISABLE=1
 exec "$managed/T3-Code.AppImage" "$@"
@@ -71,7 +76,7 @@ python3 "$managed/runtime.py" >/dev/null
 systemctl --user try-restart t3code.service
 `;
 
-function filesFor(home: string, mode: string) {
+function filesFor(home: string, mode: string, cleanupPython: string) {
   const bootService = mode === "boot-service";
   const desktopOnly = mode === "desktop-only";
   const managed = `${home}/.local/opt/t3code/managed`;
@@ -92,6 +97,11 @@ UMask=0077
 WantedBy=default.target
 `;
   return [
+    {
+      path: ".local/opt/t3code/managed/cleanup-managed-linux.py",
+      content: cleanupPython,
+      mode: 0o755,
+    },
     ...(bootService
       ? [
           {
@@ -170,6 +180,7 @@ MimeType=x-scheme-handler/t3code;
           ".local/bin/t3code",
           ".local/share/applications/t3code-local.desktop",
           ".local/share/applications/com.t3tools.T3Code.desktop",
+          ".local/opt/t3code/managed/cleanup-managed-linux.py",
         ].includes(file.path)
       : !bootService ||
         ![
@@ -197,7 +208,11 @@ export async function installManagedLinuxFiles(home: string, check = false) {
   });
   if (!["shared", "boot-service", "desktop-only"].includes(serverMode.trim()))
     throw new Error("Unrecognized managed server mode");
-  for (const file of filesFor(home, serverMode.trim())) {
+  const cleanupPython = await NodeFSP.readFile(
+    new URL("./cleanup-managed-linux.py", import.meta.url),
+    "utf8",
+  );
+  for (const file of filesFor(home, serverMode.trim(), cleanupPython)) {
     const destination = NodePath.join(home, file.path);
     const stat = await NodeFSP.lstat(destination).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "ENOENT") throw error;
@@ -257,7 +272,12 @@ if (
   const args = process.argv.slice(2);
   if (args.length > 1 || args.some((arg) => arg !== "--check"))
     throw new Error("Usage: node install-managed-linux.ts [--check]");
-  console.log(
-    JSON.stringify(await installManagedLinuxFiles(NodeOS.homedir(), args.includes("--check"))),
-  );
+  const result = await installManagedLinuxFiles(NodeOS.homedir(), args.includes("--check"));
+  if (!args.includes("--check")) {
+    NodeChildProcess.execFileSync("python3", [
+      NodePath.join(NodeOS.homedir(), ".local/opt/t3code/managed/cleanup-managed-linux.py"),
+    ]);
+    result.backupDirectory = null;
+  }
+  console.log(JSON.stringify(result));
 }
