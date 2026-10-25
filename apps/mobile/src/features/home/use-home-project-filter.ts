@@ -23,6 +23,7 @@ export function useHomeProjectFilter(
     ],
     [catalogProjects, options.projectGroupingMode, options.selectedProjectKeys],
   );
+  // oxlint-disable-next-line t3code/react-effect-budget -- Persist migrated scope keys when an asynchronously loaded catalog resolves them.
   useEffect(() => {
     if (
       resolvedKeys.length !== options.selectedProjectKeys.length ||
