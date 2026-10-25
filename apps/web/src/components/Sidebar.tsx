@@ -999,12 +999,16 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const threadSearch = useThreadSearch(
     searchEnvironmentIds,
     threadSearchQuery,
-    scopedProjectGroup === null
+    scopedProjectKeys === null
       ? {}
       : {
-          projectIds: scopedProjectGroup.memberProjectRefs.map(
-            (projectRef) => projectRef.projectId,
-          ),
+          projectIds: [
+            ...new Set(
+              scopedProjectGroups.flatMap((group) =>
+                group.memberProjectRefs.map((projectRef) => projectRef.projectId),
+              ),
+            ),
+          ],
         },
   );
   useEffect(() => {
