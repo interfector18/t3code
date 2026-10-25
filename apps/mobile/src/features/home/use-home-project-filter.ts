@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useMemo, type Dispatch, type SetStateAction } from "react";
 import { resolveScratchProjectScopeKey } from "@t3tools/client-runtime/state/project-grouping";
 import type { ResolvedHomeListOptions } from "./home-list-options";
 import { toggleHomeProjectFilter } from "./home-project-filter";
@@ -23,14 +23,6 @@ export function useHomeProjectFilter(
     ],
     [catalogProjects, options.projectGroupingMode, options.selectedProjectKeys],
   );
-  useEffect(() => {
-    if (
-      resolvedKeys.length !== options.selectedProjectKeys.length ||
-      resolvedKeys.some((key, index) => key !== options.selectedProjectKeys[index])
-    ) {
-      setSelectedProjectKeys(resolvedKeys);
-    }
-  }, [options.selectedProjectKeys, resolvedKeys, setSelectedProjectKeys]);
   // Keep offline selections saved; only scopes available in this view affect its list.
   const selectedProjectKeys = useMemo(() => {
     const available = new Set(projects.map((project) => project.key));
@@ -38,9 +30,23 @@ export function useHomeProjectFilter(
   }, [projects, resolvedKeys]);
   const onProjectChange = useCallback(
     (key: string | null) => {
-      setSelectedProjectKeys((keys) => toggleHomeProjectFilter(keys, key));
+      setSelectedProjectKeys((keys) =>
+        toggleHomeProjectFilter(
+          [
+            ...new Set(
+              keys.map((savedKey) =>
+                resolveScratchProjectScopeKey(savedKey, catalogProjects, {
+                  sidebarProjectGroupingMode: options.projectGroupingMode,
+                  sidebarProjectGroupingOverrides: {},
+                })!,
+              ),
+            ),
+          ],
+          key,
+        ),
+      );
     },
-    [setSelectedProjectKeys],
+    [catalogProjects, options.projectGroupingMode, setSelectedProjectKeys],
   );
   return { selectedProjectKeys, onProjectChange };
 }

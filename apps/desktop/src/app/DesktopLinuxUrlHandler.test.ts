@@ -237,7 +237,10 @@ describe("DesktopLinuxUrlHandler", () => {
         environment: { desktopLauncherPath: Option.some("/opt/T3 Code/t3code") },
       });
 
-      assert.include(recorded.files[0]?.content, 'Exec="/opt/T3 Code/t3code" %U');
+      assert.include(
+        recorded.files[0]?.content,
+        'Exec=env APPIMAGELAUNCHER_DISABLE=1 "/opt/T3 Code/t3code" %U',
+      );
     });
   });
 

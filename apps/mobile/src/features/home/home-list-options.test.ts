@@ -218,7 +218,10 @@ describe("home list options across layout changes", () => {
       { key: "repository:one", label: "Repo" },
     ];
     await showLayout("sidebar");
-    expect(latest.options.selectedProjectKeys).toEqual([scratchKey, "repository:one"]);
+    expect(latest.options.selectedProjectKeys).toEqual([firstKey, secondKey, "repository:one"]);
     expect(projectFilter.selectedProjectKeys).toEqual([scratchKey, "repository:one"]);
+    expect(saved).toEqual([]);
+    await act(() => projectFilter.onProjectChange("repository:one"));
+    expect(latest.options.selectedProjectKeys).toEqual([scratchKey]);
   });
 });

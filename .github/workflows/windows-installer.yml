@@ -102,7 +102,7 @@ jobs:
 
       - name: Install Linux build libraries
         if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config imagemagick
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev pkg-config imagemagick xvfb
 
       - name: Install build dependencies
         run: vp install --filter=t3... --filter=@t3tools/web... --filter=@t3tools/desktop... --filter=@t3tools/scripts...
@@ -119,6 +119,33 @@ jobs:
 
       - name: Build installer
         run: vp run dist:desktop:artifact --platform "${{ matrix.platform }}" --target "${{ matrix.target }}" --arch "${{ matrix.arch }}" --verbose
+
+      - name: Boot the built web client
+        if: matrix.platform == 'linux' && matrix.arch == 'x64'
+        working-directory: apps/web
+        run: |
+          vp exec playwright install --with-deps chromium
+          node scripts/verify-built-boot.ts
+
+      - name: Launch packaged Linux desktop
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          appimage=$(ls "$GITHUB_WORKSPACE"/release/*.AppImage)
+          chmod +x "$appimage"
+          (cd "$RUNNER_TEMP" && "$appimage" --appimage-extract >/dev/null)
+          xvfb-run -a node scripts/smoke-desktop-app.ts \
+            --executable "$RUNNER_TEMP/squashfs-root/t3code" \
+            --artifacts-dir "$RUNNER_TEMP/desktop-launch-check"
+
+      - name: Upload desktop launch failure evidence
+        if: failure() && matrix.platform == 'linux'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: desktop-launch-check-linux-${{ matrix.arch }}
+          path: ${{ runner.temp }}/desktop-launch-check
+          if-no-files-found: ignore
 
       - name: Build Linux server executable
         if: matrix.platform == 'linux'
