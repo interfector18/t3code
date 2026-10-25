@@ -1,18 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as SqlClient from "effect/sql/SqlClient";
 
-/**
- * Manual compatibility migration for persistent, non-expiring auth sessions.
- *
- * This migration previously ran locally as migration 33 before upstream assigned
- * that tracked ID to ProjectionThreadsSettled. It is intentionally kept outside
- * the automatic migration registry so future rebases cannot create another ID
- * collision or cause Effect's numeric migration tracking to skip upstream work.
- *
- * The current local database has already applied this schema change. Apply this
- * effect manually to a fresh or replaced database when persistent sessions are
- * still required. The guards below make repeated application safe.
- */
+// Keep this idempotent migration outside the numbered registry: the fork previously used
+// an ID now owned by upstream, so numeric migration tracking could skip either schema change.
 export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
 
