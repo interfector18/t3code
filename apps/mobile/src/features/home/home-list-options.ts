@@ -29,7 +29,9 @@ function defaultHomeListOptions(filters?: ThreadListFilters): HomeListOptions {
   };
 }
 
-type HomeListOptionsUpdate = Partial<HomeListOptions> | ((current: HomeListOptions) => Partial<HomeListOptions>);
+type HomeListOptionsUpdate =
+  | Partial<HomeListOptions>
+  | ((current: HomeListOptions) => Partial<HomeListOptions>);
 
 interface HomeListOptionsContextValue {
   readonly options: HomeListOptions;
@@ -81,7 +83,11 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
   const options = shared?.options ?? localOptions;
   const updateOptions =
     shared?.updateOptions ??
-    ((patch: HomeListOptionsUpdate) => setLocalOptions((current) => ({ ...current, ...(typeof patch === "function" ? patch(current) : patch) })));
+    ((patch: HomeListOptionsUpdate) =>
+      setLocalOptions((current) => ({
+        ...current,
+        ...(typeof patch === "function" ? patch(current) : patch),
+      })));
   const selectedEnvironmentId =
     options.selectedEnvironmentId !== null &&
     availableEnvironmentIds.has(options.selectedEnvironmentId)
@@ -99,8 +105,12 @@ export function useHomeListOptions(availableEnvironmentIds: ReadonlySet<Environm
   const setSelectedEnvironmentId = (value: EnvironmentId | null) => {
     updateOptions({ selectedEnvironmentId: value });
   };
-  const setSelectedProjectKeys = (value: readonly string[] | ((current: readonly string[]) => readonly string[])) => {
-    updateOptions((current) => ({ selectedProjectKeys: typeof value === "function" ? value(current.selectedProjectKeys) : value }));
+  const setSelectedProjectKeys = (
+    value: readonly string[] | ((current: readonly string[]) => readonly string[]),
+  ) => {
+    updateOptions((current) => ({
+      selectedProjectKeys: typeof value === "function" ? value(current.selectedProjectKeys) : value,
+    }));
   };
   const setProjectSortOrder = (value: HomeProjectSortOrder) => {
     updateOptions({ projectSortOrder: value });
