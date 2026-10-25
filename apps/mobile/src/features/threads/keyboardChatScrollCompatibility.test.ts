@@ -16,6 +16,7 @@ function growComposerPadding(scrollViewRef: { value: object | null }) {
   const frames: Array<() => void> = [];
   const scrolls: Array<{ y: number; animated: boolean }> = [];
   const reanimated = {
+    useSharedValue: (value: unknown) => ({ value }),
     useAnimatedReaction: (
       prepare: () => number,
       reaction: (current: number, previous: number) => void,
