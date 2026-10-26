@@ -22,6 +22,7 @@ import { loadRepoEnv } from "../../scripts/lib/public-config";
 import { thirdPartyLicensesPlugin } from "../../scripts/lib/third-party-licenses";
 import { tailwindPlugins } from "./vite/tailwind";
 import { warmBundledDevPlugin } from "./vite/warmBundledDev";
+import { iconChunkGroup } from "./vite/chunkGroups";
 
 const repoEnv = loadRepoEnv();
 Object.assign(process.env, repoEnv);
@@ -367,11 +368,7 @@ export default defineConfig(() => {
                 test: /\/node_modules\/(?:react|react-dom|scheduler)\//,
                 includeDependenciesRecursively: false,
               },
-              {
-                name: "icons",
-                test: /\/(?:components\/chat\/PierreEntryIcon\.tsx|pierre-icons\.ts|mediaPreview\.ts)$/,
-                includeDependenciesRecursively: false,
-              },
+              iconChunkGroup,
             ],
           },
         },
