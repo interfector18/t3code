@@ -187,6 +187,7 @@ import {
   filterSidebarProjectScopeItems,
   firstValidTimestampMs,
   belongsInSidebarWorkingShelf,
+  filterSidebarProjectFolderThreads,
   isSidebarEnvironmentDisconnected,
   isSidebarNestedLinkClick,
   isTrailingDoubleClick,
@@ -441,6 +442,7 @@ function useSidebarThreads(input: {
   // Folders already separate the work, so boring mode has no Working shelf.
   const workingShelfEnabled =
     useClientSettings((s) => s.sidebarWorkingShelfEnabled) && folderGroups === null;
+  const hideWorkingFolderThreads = useClientSettings((s) => s.boringSidebarHideWorkingThreads);
   const environmentConnections = useEnvironmentConnectionSummaries();
   const liveShellEnvironmentIds = useAtomValue(liveShellEnvironmentIdsAtom);
   const disconnectedEnvironmentIds = new Set(
@@ -538,7 +540,15 @@ function useSidebarThreads(input: {
   const projectFolders =
     folderGroups === null
       ? null
-      : groupSidebarThreadsByProject(folderGroups, activeThreads, keepEmpty).map((folder) => {
+      : groupSidebarThreadsByProject(
+          folderGroups,
+          filterSidebarProjectFolderThreads(activeThreads, {
+            hideWorkingThreads: hideWorkingFolderThreads,
+            routeThreadKey: routeRowThreadKey,
+            disconnectedEnvironmentIds,
+          }),
+          keepEmpty,
+        ).map((folder) => {
           const collapsed = !resolveProjectExpanded(
             projectExpandedById,
             sidebarFolderExpansionKeys(folder.group),

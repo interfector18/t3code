@@ -35,6 +35,7 @@ import {
   type SidebarSection,
   resolveSidebarDropVerb,
   groupSidebarThreadsByProject,
+  filterSidebarProjectFolderThreads,
   resolveSidebarFolderDot,
   sidebarFolderExpansionKeys,
 } from "./Sidebar.logic";
@@ -1531,6 +1532,69 @@ describe("sidebarFolderExpansionKeys", () => {
 });
 
 describe("groupSidebarThreadsByProject", () => {
+  it("hides working folder rows without hiding attention, open, or disconnected threads", () => {
+    const idle = presentThreadShell(localEnvironmentId, makeThread().source);
+    const running = {
+      ...idle,
+      id: ThreadId.make("running"),
+      runtime: {
+        status: "running" as const,
+        activeRunId: null,
+        providerInstanceId: ProviderInstanceId.make("codex"),
+        providerName: "Codex",
+        lastError: null,
+        updatedAt: "2026-03-09T10:00:00.000Z",
+      },
+    };
+    const remote = { ...running, environmentId: EnvironmentId.make("remote") };
+    const threads = [
+      running,
+      { ...running, id: ThreadId.make("approval"), hasPendingApprovals: true },
+      { ...running, id: ThreadId.make("question"), hasPendingUserInput: true },
+      {
+        ...running,
+        id: ThreadId.make("monitoring"),
+        runtime: { ...running.runtime, status: "idle" as const },
+      },
+      idle,
+      remote,
+    ];
+    const options = {
+      hideWorkingThreads: true,
+      routeThreadKey: null,
+      disconnectedEnvironmentIds: new Set([remote.environmentId]),
+    };
+    const visible = filterSidebarProjectFolderThreads(threads, options);
+    expect(visible).toEqual([threads[1], threads[2], idle, remote]);
+    expect(
+      filterSidebarProjectFolderThreads(threads, { ...options, hideWorkingThreads: false }),
+    ).toBe(threads);
+    expect(
+      filterSidebarProjectFolderThreads(threads, {
+        ...options,
+        routeThreadKey: scopedThreadKey(scopeThreadRef(running.environmentId, running.id)),
+      }),
+    ).toEqual([running, threads[1], threads[2], idle, remote]);
+    expect(
+      filterSidebarProjectFolderThreads(threads, {
+        ...options,
+        disconnectedEnvironmentIds: new Set(),
+        routeThreadKey: scopedThreadKey(scopeThreadRef(running.environmentId, running.id)),
+      }),
+    ).toEqual([running, threads[1], threads[2], idle]);
+
+    const groups = [
+      {
+        memberProjectRefs: [{ environmentId: running.environmentId, projectId: running.projectId }],
+      },
+    ];
+    const hidden = filterSidebarProjectFolderThreads([running], options);
+    expect(groupSidebarThreadsByProject(groups, hidden, () => false)).toEqual([]);
+    expect(groupSidebarThreadsByProject(groups, hidden, () => true)).toEqual([
+      { group: groups[0], threads: [] },
+    ]);
+  });
+
   it("puts each thread in its project's folder and drops empty projects unless kept", () => {
     const remoteEnvironmentId = EnvironmentId.make("environment-remote");
     const t3code = ProjectId.make("t3code");

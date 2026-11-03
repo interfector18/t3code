@@ -156,6 +156,11 @@ needs you. Use the pen button on a folder, or right-click it, to start a thread 
 Pinned threads stay above the folders, and Snoozed and Settled stay below them. In this mode you
 cannot drag threads, and the Working section is off. Each device keeps its own choice.
 
+Turn on **Settings → Labs → Hide working threads in project folders** to hide running and
+monitoring threads until they need your attention. Pinned threads and the open thread stay
+visible. Projects with no remaining visible threads follow the same empty-folder rules above.
+Turn the setting off to show working threads again. This applies to web and desktop only.
+
 ## Settle finished work
 
 Choose **Settle thread** from its menu to move finished work out of the active list
