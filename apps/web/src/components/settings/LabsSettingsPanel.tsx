@@ -39,6 +39,7 @@ export function LabsSettingsPanel() {
     <SettingsPageContainer>
       <SettingsSection id="beta" title={gt("Beta")}>
         <BoringSidebarRow />
+        <BoringSidebarHideWorkingRow />
         {/* Clerk is only mounted when this build has T3 Connect. */}
         {hasCloudPublicConfig() ? <GuestLinksRowWithSignIn /> : <GuestLinksRow />}
         <LinkedEnvironmentsRow />
@@ -78,6 +79,30 @@ function BoringSidebarRow() {
         </div>
       ) : null}
     </SettingsRow>
+  );
+}
+
+function BoringSidebarHideWorkingRow() {
+  const gt = useGT();
+  const searchableSetting = useSearchableSetting();
+  const settings = useScopedSettings();
+  const updateSettings = useUpdateScopedSettings();
+  return (
+    <SettingsRow
+      {...searchableSetting("boring-sidebar-hide-working")}
+      description={gt(
+        "Move running and monitoring threads from project folders into the Working section until they need you. Pinned threads stay pinned.",
+      )}
+      control={
+        <Switch
+          checked={settings.boringSidebarHideWorkingThreads}
+          onCheckedChange={(checked) =>
+            updateSettings({ boringSidebarHideWorkingThreads: Boolean(checked) })
+          }
+          aria-label={gt("Hide working threads in project folders")}
+        />
+      }
+    />
   );
 }
 
