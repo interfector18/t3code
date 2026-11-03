@@ -1,0 +1,12 @@
+{
+  "previousRelease": "v0.1.11-nightly.20261124.80",
+  "upstreamBase": "31d95f850bd8f1dfb68676500606d44b923e4883",
+  "highlights": [
+    "**Less checkpoint and workflow overhead:** Checkpoint captures run fewer Git commands and reuse a per-thread index. Workflow queries use indexes, run lists avoid loading every webhook payload, and watchers send changes rather than the full list. Skipped runs no longer retain webhook payloads forever. These changes are not general database compaction or measured fleet-wide CPU savings.",
+    "**Offline thread triage:** Web and mobile can snooze and settle threads while their environment is offline, keeping the action queued for reconnection. Our project-level snooze controls and Working section remain available.",
+    "**Safer multi-repository worktrees:** Project layout commands require a person's approval of the exact command before they run. Cleanup preserves checkouts that gained work while a removal command waited. Delegated worktree children support multi-repository project folders and start each repository from the parent's branch.",
+    "**Workflow and quota tools:** Workflow questions have kinds, runs have tags, and Needs you can filter by question kind while keeping older open questions visible. Linked workflow steps open their thread, and custom HTTP quota sources can report user-hosted usage limits. Pooled quota totals and refill timing are more consistent.",
+    "**Mobile, desktop, and input polish:** Mobile updates Expo SDK 58 patches, LegendList, Reanimated and navigation dependencies, and gives connection traces their own switch. Dictation controls stay visible when a question hides the composer. Terminal cycling gets keybindings; composer slash and skill triggers respond sooner, and search results show matching lines.",
+    "**Provider and privacy reliability:** Claude avoids reconnecting indicators on every turn and preserves sessions across symlinked shared homes. ACP Registry refreshes stale models and supports explicit text generation; Cursor releases checkpoint memory sooner. Analytics and relay traces remove more account, machine and request identifiers, respect opt-outs, and notify users of new T3 Connect device sign-ins."
+  ]
+}
