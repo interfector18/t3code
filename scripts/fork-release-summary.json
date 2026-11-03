@@ -1,0 +1,14 @@
+{
+  "previousRelease": "v0.1.9-nightly.20261113.69",
+  "upstreamBase": "0487654fc8f2c9e733e94ce55eb8fec1c3a1ea52",
+  "highlights": [
+    "**Streaming and database load:** ACP subagent replies and Cursor streaming avoid repeated database writes, and Pi shell output avoids rewriting snapshots for each update. SQLite can dispatch queued reads to another available reader.",
+    "**Client performance:** Streaming rows, relationships and changed-file views do less repeated rendering. Chat retains fewer copies of message data, and Usage can show saved totals before a full scan finishes.",
+    "**Agent recovery:** Stopped provider threads can resume natively, detached sessions gain portable handoff, and Codex can launch child work as native subagents. A hung Codex app-server no longer blocks later launches.",
+    "**Updates and remote hosts:** Update Everything can download server updates while providers install. Update manifests receive fuller validation, AppImage filenames are preserved, and SSH waits for an existing boot server instead of starting a duplicate.",
+    "**Mobile:** Changes views avoid redrawing every file, reconnect and retry can re-enable environments, and duplicate attachments are prevented. New threads respect the selected project filter, with fixes for draft deletion and review defaults.",
+    "**Git and checkpoint recovery:** Recovery handles interrupted staging and temporary packs more safely, fetched commits stop appearing as false local changes, and remote push configuration and selected-file cherry-picking receive fixes.",
+    "**Files and customization:** Agents can customize theme colors and CSS. File edits preserve UTF-8 byte-order marks and refuse unsupported encodings; citations, semicolon-delimited spreadsheets and PDF text handling improve.",
+    "**Device access:** New T3 Connect devices can require approval before connecting. Our persistent-session support is retained alongside device proof keys, with a regression check that the compatibility migration preserves the new field."
+  ]
+}
