@@ -11,6 +11,7 @@ import {
   getFallbackThreadIdAfterDelete,
   hasUnseenCompletion,
   resolveSidebarRowThreadId,
+  resolveSidebarWorkingShelfEnabled,
   orderItemsByPreferredIds,
   pinOrderKeyBetween,
   resolveSidebarSweepKeys,
@@ -33,6 +34,7 @@ import {
   type SidebarSection,
   resolveSidebarDropVerb,
   groupSidebarThreadsByProject,
+  projectFolderSnoozeTargets,
   resolveSidebarFolderDot,
   sidebarFolderExpansionKeys,
 } from "./Sidebar.logic";
@@ -996,6 +998,13 @@ describe("unseen completion with background work", () => {
 });
 
 describe("Working shelf (beta)", () => {
+  it("restores the Working section when boring folders hide working threads", () => {
+    expect(resolveSidebarWorkingShelfEnabled(true, true, false)).toBe(false);
+    expect(resolveSidebarWorkingShelfEnabled(false, true, true)).toBe(true);
+    expect(resolveSidebarWorkingShelfEnabled(true, true, true)).toBe(true);
+    expect(resolveSidebarWorkingShelfEnabled(false, false, true)).toBe(false);
+    expect(resolveSidebarWorkingShelfEnabled(true, false, false)).toBe(true);
+  });
   const runtime = {
     status: "running" as const,
     activeRunId: null,
@@ -1568,6 +1577,44 @@ describe("sidebarFolderExpansionKeys", () => {
 });
 
 describe("groupSidebarThreadsByProject", () => {
+  it("snoozes idle and pending-question members but leaves live threads and approvals visible", () => {
+    const idle = presentThreadShell(localEnvironmentId, makeThread().source);
+    const remote = { ...idle, environmentId: EnvironmentId.make("remote") };
+    const question = { ...idle, id: ThreadId.make("question"), hasPendingUserInput: true };
+    const running = {
+      ...idle,
+      id: ThreadId.make("running"),
+      runtime: {
+        status: "running" as const,
+        activeRunId: null,
+        providerInstanceId: ProviderInstanceId.make("codex"),
+        providerName: "Codex",
+        lastError: null,
+        updatedAt: "2026-03-09T10:00:00.000Z",
+      },
+    };
+    const members = [
+      { environmentId: idle.environmentId, projectId: idle.projectId },
+      { environmentId: remote.environmentId, projectId: remote.projectId },
+    ];
+    expect(
+      projectFolderSnoozeTargets(
+        [
+          idle,
+          remote,
+          running,
+          { ...running, runtime: { ...running.runtime, status: "idle" as const } },
+          { ...idle, hasPendingApprovals: true },
+          question,
+          { ...idle, environmentId: EnvironmentId.make("other") },
+          { ...idle, projectId: ProjectId.make("other") },
+        ],
+        members,
+        "2026-03-09T11:00:00.000Z",
+      ),
+    ).toEqual([idle, remote, question]);
+  });
+
   it("puts each thread in its project's folder and drops empty projects unless kept", () => {
     const remoteEnvironmentId = EnvironmentId.make("environment-remote");
     const t3code = ProjectId.make("t3code");

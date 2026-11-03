@@ -2,6 +2,7 @@ import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection
 import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { resolveThreadWorkingStartedAt } from "@t3tools/client-runtime/state/models";
 import { isShownUnderParent } from "@t3tools/client-runtime/state/threads";
+import { isThreadWorking } from "@t3tools/client-runtime/state/thread-inbox";
 import { backgroundWorkHoldsCompletion } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
 import { threadPullRequestSearchTerms } from "@t3tools/shared/threadPullRequests";
 import * as React from "react";
@@ -28,6 +29,7 @@ import type { SidebarProjectSortOrder, SidebarThreadSortOrder } from "@t3tools/c
 import type { AsyncResult } from "effect/reactivity";
 import {
   effectiveSnoozed,
+  canSnooze,
   type ThreadSnoozeShell,
 } from "@t3tools/client-runtime/state/thread-settled";
 import {
@@ -1053,6 +1055,30 @@ export function sidebarFolderExpansionKeys(group: {
     ...group.memberProjects.map((member) => member.physicalProjectKey),
     ...group.memberProjects.map((member) => legacyProjectCwdPreferenceKey(member.workspaceRoot)),
   ];
+}
+
+export function resolveSidebarWorkingShelfEnabled(
+  workingShelfEnabled: boolean,
+  hasProjectFolders: boolean,
+  hideWorkingFolderThreads: boolean,
+): boolean {
+  return hasProjectFolders ? hideWorkingFolderThreads : workingShelfEnabled;
+}
+
+export function projectFolderSnoozeTargets<T extends SidebarThreadSummary>(
+  threads: readonly T[],
+  members: readonly { readonly environmentId: EnvironmentId; readonly projectId: string }[],
+  now: string,
+): T[] {
+  return threads.filter(
+    (thread) =>
+      members.some(
+        (member) =>
+          member.environmentId === thread.environmentId && member.projectId === thread.projectId,
+      ) &&
+      !isThreadWorking(thread) &&
+      canSnooze(thread, { now }),
+  );
 }
 
 /**

@@ -1229,7 +1229,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
           sortable?.isDragging && "relative z-20",
         )}
       >
-        <Tooltip disabled={sortable?.isDragging}>
+        <Tooltip disabled={snoozeMenuOpen || sortable?.isDragging}>
           <TooltipTrigger
             render={
               <div
@@ -1297,6 +1297,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                     className={cn(
                       "inline-flex justify-end tabular-nums text-secondary-label transition-opacity",
                       !isWoke && "group-any-hover/sidebar-row:opacity-0",
+                      snoozeMenuOpen && "opacity-0",
                     )}
                   >
                     {variantAction === "unsnooze" && props.snoozeWakeLabelText !== null ? (
@@ -1345,7 +1346,42 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                       </span>
                     )}
                   </span>
-                  {variantAction === "unsnooze" ? (
+                  {inFolder ? (
+                    <span
+                      className={cn(
+                        "pointer-events-none absolute inset-y-0 right-0 flex items-stretch opacity-0 has-[:focus-visible]:pointer-events-auto has-[:focus-visible]:static has-[:focus-visible]:opacity-100 group-any-hover/sidebar-row:pointer-events-auto group-any-hover/sidebar-row:static group-any-hover/sidebar-row:opacity-100",
+                        snoozeMenuOpen && "pointer-events-auto static opacity-100",
+                      )}
+                    >
+                      {showSnoozeButton ? (
+                        <SnoozeMenuButton
+                          open={snoozeMenuOpen}
+                          onOpenChange={setSnoozeMenuOpen}
+                          onSnooze={handleSnoozePreset}
+                          timestampFormat={props.timestampFormat}
+                          environmentId={thread.environmentId}
+                        />
+                      ) : null}
+                      {props.settlementSupported ? (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <button
+                                type="button"
+                                aria-label="Settle thread"
+                                onClick={handleSettleClick}
+                                onPointerDown={handleActionPointerDown}
+                                className="inline-flex cursor-pointer items-center rounded-md bg-transparent px-2 text-xs text-muted-foreground hover:text-foreground"
+                              />
+                            }
+                          >
+                            <CheckIcon className="size-3" />
+                          </TooltipTrigger>
+                          <TooltipPopup side="top">Settle thread</TooltipPopup>
+                        </Tooltip>
+                      ) : null}
+                    </span>
+                  ) : variantAction === "unsnooze" ? (
                     !props.snoozeSupported ? null : (
                       <button
                         type="button"
