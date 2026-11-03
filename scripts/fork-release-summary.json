@@ -1,0 +1,13 @@
+{
+  "previousRelease": "v0.1.7-nightly.20261104.56",
+  "upstreamBase": "337c5858c33bc7f8f6dfd391a2c279fa0f7e4d17",
+  "highlights": [
+    "**Connections:** Large server configurations on slow links no longer trigger reconnect loops. T3 Connect restarts dropped tunnel clients, and threads can keep syncing after a stream failure.",
+    "**Conversations:** Stopping a run no longer collapses its visible history to one row. Older pending questions remain answerable, deleted forks disappear from Lineage, and interrupted wakeups preserve sibling work.",
+    "**Agents:** Claude tool calls can render MCP Apps. Agents can request secrets through the dedicated secret-request flow instead of asking you to paste them into chat.",
+    "**Mobile:** Keyboard and autocorrect handling is more consistent. Android wide-image pinch gestures work across the viewer, while iOS image previews and thread menus are easier to use.",
+    "**Claude and limits:** Mobile can configure another Claude account and compact stale Claude threads before sending. Sharing-limit notices expose existing recovery options more consistently.",
+    "**Projects:** An optional ghq-style clone layout organizes new clones under host/owner/repository folders. Pull-request description preferences save correctly, and Changes totals name their comparison base.",
+    "**Sidebar:** Project filter rows stay aligned on hover. Working threads keep their Working-section placement during disconnects; our project-folder Working and snooze controls remain available."
+  ]
+}
