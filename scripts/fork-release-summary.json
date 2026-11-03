@@ -1,0 +1,11 @@
+{
+  "previousRelease": "v0.1.9-nightly.20261115.72",
+  "upstreamBase": "c5e6b24ff5e1b752d91a75fa425322f5c90bf5cf",
+  "highlights": [
+    "**Desktop and navigation:** Repeated renderer crashes now trigger recovery with a backoff instead of leaving a blank window. Usage closes without reloading, and thread mentions can find older settled threads on linked machines.",
+    "**Terminals:** Only one web viewer answers shared PTY queries, preventing duplicate responses. Legacy mouse reports preserve their bytes, modified F3 reaches terminal programs, concealed text stays hidden under the cursor, and Windows process scans preserve non-ASCII names.",
+    "**Composer and models:** Switching a draft's machine preserves its selected models, editing a queued message into /btw keeps it out of the main thread, and copied code blocks omit the fence's trailing newline. Scheduled tasks use the project's effective default model.",
+    "**Agents and sessions:** Background OpenCode subagent questions survive the parent turn ending. ACP shows locally reported agent versions and recognizes sessions already owned by a thread; imported Claude titles use the actual prompt inside wake messages.",
+    "**Mobile and accessibility:** Short thread rows no longer clip swipe actions, sending a message avoids an early feed shift, and fully typed /model keeps its suggestion. iOS multi-item pastes become attachments, cuts can be undone, and videos preserve their contain fit. Usage figures gain clearer screen-reader labels."
+  ]
+}
