@@ -1,0 +1,11 @@
+{
+  "previousRelease": "v0.1.7-nightly.20261109.62",
+  "upstreamBase": "ff7aa5ace311c70587631dcedb43f1d92068c342",
+  "highlights": [
+    "**Models:** Claude Fable 5.2 is available. The model picker checks for new models when it opens, and offers the provider CLI update a new model needs.",
+    "**Responsiveness:** Finishing a long background thread no longer freezes the app. Messages can be sent while attachments are still uploading.",
+    "**Updates:** Checking for updates finds provider CLI updates on every connected machine, not only the local one.",
+    "**Mobile:** Android PDF previews support double-tap zoom with easier link taps, full thread-row swipes complete reliably, the chat inset resets after the keyboard closes, and the Duo sidebar stays put while resizing Files.",
+    "**Polish:** Clicked workspace areas no longer show a stray focus ring, Cmd+W closes focused DevTools, and Settings clarifies that custom instructions cover pull request descriptions. The Claude Agent SDK is updated to 0.3.321."
+  ]
+}
