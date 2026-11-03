@@ -1,0 +1,14 @@
+{
+  "previousRelease": "v0.1.7-nightly.20261108.59",
+  "upstreamBase": "b8c2cfad6b3363c4da144a859073b41ec77579ab",
+  "highlights": [
+    "**Performance:** Thread switches and file counts cause fewer sidebar/chat renders; long reasoning previews format faster. Branch labels use lightweight Git reads, replacing our demand-loading workaround.",
+    "**Database space:** Web/desktop Settings can reclaim freed database space after a free-space check. Reclaim restarts the host and stops agents while it runs; publishing this release does not run it.",
+    "**Writing helpers:** Optional text generators can use model APIs for titles, commits and dictation cleanup. Labs can suggest a next prompt after Claude/Codex turns; @-mention a model to name it to an agent.",
+    "**Android:** Faster native request signing and thread opening, multiline file-text selection, Return-to-send on hardware keyboards, clipboard attachments and fixes for SVG crashes, code blocks and navigation colors.",
+    "**Mobile:** Updated virtualized lists remove old scrolling workarounds; cached thread lists resume faster. Mermaid/math render in Markdown, images can be saved, and iOS terminal, widget and socket handling improve.",
+    "**Connections and agents:** A guided MCP setup connects other apps with access-bound approval codes. Codex goal results and Claude compaction handling improve; private secret cards support sudo-password requests.",
+    "**Desktop and usability:** Faster Linux startup, safer downloads and redirects, improved window/preview handling and a simpler Welcome page. Composer model picks persist, and deleted threads clear their draft state.",
+    "**Reliability:** Updated vulnerable dependencies, safer worktree allocation and IME handling. Native server archives bundle the HTTP client needed by new integrations while preserving Cursor's runtime dependencies."
+  ]
+}
