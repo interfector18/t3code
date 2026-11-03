@@ -1,0 +1,11 @@
+{
+  "previousRelease": "v0.1.7-nightly.20261109.61",
+  "upstreamBase": "6b02cbff3a0cd9a0f2c97007562a1ce74fd35aa0",
+  "highlights": [
+    "**Our worktree feature:** Configure worktree folders per project in web/desktop Settings. New worktrees balance free space against active-thread load on each drive; existing worktrees stay where they are.",
+    "**Drive safety:** Missing custom folders are skipped, never created. If no configured root is usable, creation fails rather than silently using another disk; removed roots remain known for cleanup.",
+    "**Mobile:** Thread-row timers no longer reflow titles each second, feed expand/collapse is smoother at the bottom, pickers stay reachable above the keyboard, and iOS columns re-wrap once after resizing.",
+    "**Native updates:** Expo SDK 58, React Native and gesture/keyboard libraries are updated. The signed Android preview includes these native changes and needs an in-place APK update.",
+    "**Speech and packaging:** Transcription reference benchmarks match the hardware being measured. Upstream fixes Cursor Origin's native CLI import, allowing us to remove our temporary bundling workaround."
+  ]
+}
