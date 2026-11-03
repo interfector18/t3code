@@ -25,6 +25,7 @@ export function LabsSettingsPanel() {
         <BoringSidebarRow />
         <BoringSidebarMultilineRow />
         <ToolCallVisibilityRow />
+        <BoringSidebarHideWorkingRow />
         {/* Clerk is only mounted when this build has T3 Connect. */}
         {hasCloudPublicConfig() ? <GuestLinksRowWithSignIn /> : <GuestLinksRow />}
         <LinkedEnvironmentsRow />
@@ -50,6 +51,26 @@ function BoringSidebarRow() {
             updateSettings({ boringSidebarEnabled: Boolean(checked), legacySidebarEnabled: false })
           }
           aria-label="Boring sidebar (group by project)"
+        />
+      }
+    />
+  );
+}
+
+function BoringSidebarHideWorkingRow() {
+  const settings = useScopedSettings();
+  const updateSettings = useUpdateScopedSettings();
+  return (
+    <SettingsRow
+      {...searchableSetting("boring-sidebar-hide-working")}
+      description="Move running and monitoring threads from project folders into the Working section until they need you. Pinned threads stay pinned."
+      control={
+        <Switch
+          checked={settings.boringSidebarHideWorkingThreads}
+          onCheckedChange={(checked) =>
+            updateSettings({ boringSidebarHideWorkingThreads: Boolean(checked) })
+          }
+          aria-label="Hide working threads in project folders"
         />
       }
     />
