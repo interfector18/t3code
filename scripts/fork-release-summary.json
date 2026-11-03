@@ -1,0 +1,13 @@
+{
+  "previousRelease": "v0.1.7-nightly.20261106.58",
+  "upstreamBase": "ade473018d32003658b7d38693e083ee2e314bd8",
+  "highlights": [
+    "**Performance:** Less background tracing and Linux process polling, leaner service startup, faster provider-thread reads and PR-status recovery; Codex tools no longer wait for reasoning summaries.",
+    "**Dictation:** Opt into cloud transcription through OpenAI, Grok or OpenRouter, alongside local and paired-host options. Voice setup is easier to find, with searchable model choices and remote authorization fixes.",
+    "**Threads:** Move scheduled tasks to another thread and delete archived threads from the archive. The default auto-settle interval increases from three to seven days; side chats inherit permission and reasoning settings.",
+    "**Mobile:** Less work-row animation overhead, steadier review diffs and filter menus, Android PDF sharing and hardware-keyboard terminal controls, plus clearer scheduled-task and Markdown layouts.",
+    "**Agents:** Better ACP questions, typed answers and streamed tool output; safer session recovery and provider updates through mise. Existing agent sessions refresh linking tools, and HTML tools accept file paths.",
+    "**Sidebar and themes:** Collapsed sidebars stay collapsed, search ranking improves and remote subagents stay in their lineage. Upstream now supplies local-service themes, replacing our duplicate fork patch.",
+    "**Reliability:** Usage-limit auto-resume survives server restarts; required PR reviews remain required until approved. GitLab, Forgejo and Azure DevOps handling improves, and saved screenshots retain full resolution."
+  ]
+}
