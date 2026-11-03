@@ -1,0 +1,12 @@
+{
+  "previousRelease": "v0.1.9-nightly.20261116.74",
+  "upstreamBase": "8cf97b5f06f30a872ce30ab8a888f2ff012365a2",
+  "highlights": [
+    "**Issues and pull requests:** Track GitHub, GitLab, Azure DevOps, Forgejo, and Linear issues across web and mobile, link them to threads, and let agents work with them. Save named issue and PR filter views; issue lists gain label, assignee, and sort controls. PR panels paint from saved data and read ahead on intent.",
+    "**Languages and customization:** Upstream translates the app across web, desktop, and mobile into its supported languages. Choose an interactive terminal shell, unassign default shortcuts, make terminal close confirmation optional, and use full-size theme backgrounds. Dictation can keep recording into its original thread when you switch away.",
+    "**Performance and storage:** Thread reads stop loading every run, active shell-index reads avoid parsing thread payloads, and finished runs release unused file indexes. Find-in-thread paints only nearby matches; large MCP responses parse in linear time, and large reordered diffs avoid stalls. Usage-history retention is now configurable; this does not claim general database compaction.",
+    "**Providers and attachments:** Cursor and Antigravity gain Edit from here; Claude can fork a running thread and recovers more reliably from startup failures. Background results and imported histories survive more edge cases. Document extraction improves DOCX, RTF, ODF, notebook, and PowerPoint text, and Claude text generation receives attached images.",
+    "**Mobile:** An Issues tab and source-control/tracker settings join the app. Shared attachment uploads avoid duplicates, failed document uploads can be retried with progress, queued messages use one delivery fiber per thread, and expanding a live tool row no longer crashes the thread. Android usage widgets are redesigned and Git lists clear the navigation bar.",
+    "**Updates and security:** CLI updates check the database before switching builds, concurrent installs avoid nested runtimes, and SSH runtime downloads honor the configured release source without replacing a newer running server. Pairing, MCP retries, signed assets, provider approval boundaries, and destination-specific secrets receive additional validation."
+  ]
+}
