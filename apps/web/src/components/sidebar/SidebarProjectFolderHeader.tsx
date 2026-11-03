@@ -1,8 +1,8 @@
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { ContextMenuSource } from "@t3tools/contracts";
-import { ChevronDownIcon, SquarePenIcon } from "lucide-react";
 import { msg, T, useGT, useMessages, Var } from "gt-react";
+import { AlarmClockIcon, ChevronDownIcon, SquarePenIcon } from "lucide-react";
 import { memo } from "react";
 
 import { cn } from "~/lib/utils";
@@ -44,6 +44,7 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
   hiddenThreads: readonly EnvironmentThreadShell[];
   onToggle: (group: SidebarProjectSnapshot) => void;
   onNewThread: (group: SidebarProjectSnapshot) => void;
+  onSnooze: (group: SidebarProjectSnapshot, position: { x: number; y: number }) => void;
   onContextMenu: (
     group: SidebarProjectSnapshot,
     position: { x: number; y: number },
@@ -112,6 +113,29 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
       </button>
       {/* Sits over the count, which hides on hover or focus, and left of the chevron. */}
       <span className="absolute inset-y-0 right-6 flex items-center opacity-0 focus-within:opacity-100 group-hover/project-folder:opacity-100 pointer-coarse:opacity-100">
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                data-sidebar-action-for={rowId}
+                size="icon-xs"
+                variant="ghost-muted"
+                aria-label={gt("Snooze idle threads in {project}", { project: group.displayName })}
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  props.onSnooze(group, { x: rect.left, y: rect.bottom });
+                }}
+              />
+            }
+          >
+            <AlarmClockIcon aria-hidden />
+          </TooltipTrigger>
+          <TooltipPopup>
+            <T>
+              Snooze idle threads in <Var>{group.displayName}</Var>
+            </T>
+          </TooltipPopup>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger
             render={
