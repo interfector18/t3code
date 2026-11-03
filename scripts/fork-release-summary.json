@@ -1,0 +1,13 @@
+{
+  "previousRelease": "v0.1.11-nightly.20261121.76",
+  "upstreamBase": "370b1fde77bec0c38c950e36663ae383b2562dcf",
+  "highlights": [
+    "**Multi-repository projects:** A project can track several repositories and give a thread a task folder containing their worktrees. Web and mobile expose repository choices, changes, and project settings. The fork's per-project worktree locations also apply to these new task folders.",
+    "**Git performance:** Idle polls reuse unchanged local status, branch pickers keep existing branch lists when refs have not moved, and push, pull, commit, cleanup, and PR lookups avoid repeated Git reads. Diff panels reuse merge bases and fetch each patch once. These are targeted reductions in Git work, not measured renderer-CPU or database-size guarantees.",
+    "**Connected environments:** Link a machine through an environment that already links to it, find linked machines in the mention menu, and read their newest thread messages by default. Remote-server modified clicks open after port forwarding, and floating device previews keep streaming across thread switches.",
+    "**Android and mobile:** Larger touch targets, fewer duplicate menu buttons, a terminal close button, localized text-selection actions, source-line highlighting, and better keyboard handling. Review sheets can hide test files and recover failed diff pagination; confirming a default-branch push no longer opens the thread twice.",
+    "**Everyday workflow:** Copy chat tables as HTML and file-preview contents, duplicate browser tabs, search keybinding actions, and preview thread chips on hover. Sidebar New respects the scoped project. Mac users can dictate with Apple Speech, and Verilog, SystemVerilog, and VHDL gain syntax highlighting.",
+    "**Providers and issues:** Recover Codex conversations rejected for encrypted history, retain Claude answers around steering, and keep background work from being pinned by ACP replay. Agent MCP sign-in is reachable from its warning, Claude Fable offers Fast Mode, and projects can use several Linear teams. TanStack Source integration is experimental behind a flag.",
+    "**Reliability and security:** Signed URL tokens are redacted from logs and traces, Git LFS clones show download progress, worktree cleanup handles dangling gitlinks and fork-merged PRs, and provider update prompts respect the install channel. Queued messages keep the thread's current model when no model is specified."
+  ]
+}
