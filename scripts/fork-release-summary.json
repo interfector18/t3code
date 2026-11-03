@@ -1,0 +1,11 @@
+{
+  "previousRelease": "v0.1.9-nightly.20261115.73",
+  "upstreamBase": "6f5838f9bcdaf31864b93694c5935c93f9532e06",
+  "highlights": [
+    "**Server responsiveness:** Busy thread locks no longer hold up unrelated queued runs, wakes, or child questions. Checkpoints avoid rehashing unchanged untracked files, large file searches avoid freezing the server, and CLI startup skips the database write lock when migrations are current.",
+    "**Updates and remote connections:** Desktop downloads fetch the newest release rather than the last check's result, and Stable apps no longer receive Nightly offers from Update everything. Codex health checks stop killing SSH-agent requests; T3 Connect error 1016 now asks you to link again.",
+    "**Threads and providers:** Dead provider processes and failed ACP tools no longer leave work appearing active. Missing Claude sessions recover with a fresh session, Pi model and session switches survive resumes, and idle ACP child output stays out of root history.",
+    "**Desktop workflow:** File tabs retain scroll position, first messages stop scrolling the sidebar, and stopped runs no longer show Done. Draft machine changes use the destination's default model; Pi and ACP selections survive temporary catalog gaps. PR diffs fold Viewed files consistently on web and mobile.",
+    "**Mobile:** Long threads stop jumping to the bottom, returning to a thread lays out its feed once, and thread switches avoid header flashes and misplaced composers. Stop stays reachable beside expanded questions, Mark unread is available from thread menus, and disabled environments disappear from the filter. iOS gains a native image viewer and smoother first tab visits."
+  ]
+}
