@@ -466,6 +466,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["beta boring sidebar folder rows multiline branch pull request details"],
   },
   {
+    id: "boring-sidebar-hide-working",
+    title: "Hide working threads in project folders",
+    to: "/settings/labs",
+    searchTerms: ["boring sidebar hide running monitoring active threads project folders"],
+  },
+  {
     id: "guest-links",
     title: "Guest links",
     to: "/settings/labs",
