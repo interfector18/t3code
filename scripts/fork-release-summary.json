@@ -1,0 +1,7 @@
+{
+  "previousRelease": "v0.1.9-nightly.20261114.70",
+  "upstreamBase": "0487654fc8f2c9e733e94ce55eb8fec1c3a1ea52",
+  "highlights": [
+    "**Project Snooze:** Snoozing a project now includes completed threads whose provider session remains idle, instead of silently skipping them. Actively running threads and approval requests remain visible, and pending-question snoozing is preserved."
+  ]
+}
