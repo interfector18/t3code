@@ -37,7 +37,11 @@ While enabled, Active is sorted by most recent return (manual reordering is paus
 
 ### Group threads by project (beta)
 
-Enable **Settings → Labs → Boring sidebar (group by project)** on web/desktop (per device) to group active threads into collapsible project folders. Pinned threads stay above; Snoozed and Settled stay below. In this mode, the Working section and sidebar drag-reordering are disabled (dragging a thread onto the composer still works).
+Enable **Settings → Labs → Boring sidebar (group by project)** on web/desktop (per device) to group active threads into collapsible project folders. Pinned threads stay above; Snoozed and Settled stay below. Sidebar drag-reordering is disabled (dragging a thread onto the composer still works).
+
+Turn on **Settings → Labs → Hide working threads in project folders** to move running and monitoring threads into the Working section until they need your attention. Pinned threads stay pinned. Turn it off to return working threads to their folders and hide the Working section.
+
+Use a project folder's Snooze button to snooze its idle active and pinned threads together. Running or monitoring threads and pending approvals stay visible. Existing pending questions can be snoozed without losing the request; a new question wakes the thread early. Choose a preset or a custom wake time; individual threads can still be woken from Snoozed.
 
 ## Settle, snooze, and archive
 
