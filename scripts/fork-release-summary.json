@@ -1,0 +1,14 @@
+{
+  "previousRelease": "v0.1.7-nightly.20261105.57",
+  "upstreamBase": "86d8838e91b81d328fd8ced042860c7c60160dcd",
+  "highlights": [
+    "**Sessions:** /clear starts a fresh provider session without leaving the thread. Scheduled tasks can reuse one thread with fresh sessions; opted-in project actions stop when threads settle.",
+    "**Performance:** Leaner recovery/live updates, idle browser cleanup and lower Linux-monitor CPU. SQLite allows a larger write-ahead log (128 vs 32 MiB) to reduce write stalls.",
+    "**Dictation:** Opt in to transcription on a chosen paired environment. Audio goes only to that host; local dictation remains available, with regional-language and Unicode fixes.",
+    "**Pull requests:** Compose @mentions and issue references, bring PR comments into chat, and use richer GitLab review, label, pipeline, maintainer-edit and source-branch controls.",
+    "**Secrets:** Answer requests with secret-provider references. More credentials support secret sources, unreadable tokens no longer silently switch accounts, and screen readers do not speak typed secrets.",
+    "**Mobile:** Faster sync/reconnect and highlighting; fixes for Android reopening offline, keyboard/backspace, composer flicker and duplicate completion notices, plus iOS draft, image and keyboard polish.",
+    "**Reading and diagnostics:** Labs can hide tool calls or show only final replies. Resource history refreshes while Diagnostics is open, sidebar dragging stays under the pointer, and desktop windows can shrink further.",
+    "**Agents and snooze:** Claude Ultracode supports more effort/model choices. Pending questions can be snoozed without losing the request; our project multiselect and snooze controls follow the new mobile layout."
+  ]
+}
