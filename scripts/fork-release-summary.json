@@ -1,0 +1,14 @@
+{
+  "previousRelease": "v0.1.8-nightly.20261110.65",
+  "upstreamBase": "17a6a01d84e3adf9f29df2639d6b6079a434e1b2",
+  "highlights": [
+    "**Performance:** MCP tools avoid reading the caller's full thread, user-message lookups use their index, and reopening finished command rows reuses output instead of fetching it again.",
+    "**Agent reliability:** Provider switches hand off started cancelled runs, Cursor steering keeps interrupted prompts, and Claude monitoring avoids per-line completion alerts. Codex usage reset times survive first-request limits.",
+    "**OpenCode and usage:** Native OpenCode goals and todo updates appear across clients. Muse Code limits and more xAI/Antigravity accounts can be read through CLIProxyAPI; Pi waiting steers and model selection are clearer.",
+    "**Mobile:** Choose a voice environment once, then its method. Larger image attachments avoid a BigInt crash; command text is highlighted, Android window layouts keep their sidebar space, and iPad headers fit correctly.",
+    "**Links and previews:** File citations open the intended file and first line of a range. Attachment previews persist during preparation, HTML previews stay anchored, and sent ordered lists retain their written numbers.",
+    "**Navigation:** Drag command-palette threads into the composer, bind a shortcut to regenerate titles, use menus for older unloaded threads, and return focus when closing the right panel.",
+    "**Remote and shutdown:** Concurrent SSH launches sharing a T3 home reuse one server. Quitting stops leftover device daemons, desktop window teardown handles input safely, and proxy 403s are not mislabeled as rate limits.",
+    "**Projects:** Linked repositories retain their identity during refresh, removed worktrees keep project skills available, and blank .gitignore lines no longer drop new files from checkpoints."
+  ]
+}
