@@ -1,0 +1,13 @@
+{
+  "previousRelease": "v0.1.11-nightly.20261121.77",
+  "upstreamBase": "7ddc81d639aa75ca6e0cbffb0f394ea3f0d83308",
+  "highlights": [
+    "**Rendering and catch-up:** Markdown moves to a static-island renderer with one shared tooltip, and resumed threads apply catch-up once instead of rendering successive stale states. Sidebar settlement avoids list jumps, tool calls stay grouped after usage pauses, and mobile drafts keep image bytes outside their JSON. These are targeted performance changes, not measured CPU or database-size guarantees.",
+    "**Connections and startup:** Idle WebSockets survive reverse proxies, incompatible server configurations stop their sessions, and a failed main web chunk reloads once before showing a boot error. ACP startup handshakes time out when an agent never replies; shared Codex app-servers that stop responding are retired.",
+    "**Sending and providers:** First messages, send-now, and steering recover across dropped sockets. Image uploads finish before sending, mixed text/image pastes retain both, and slash commands reach providers unchanged. Claude handles partial usage frames and background exits; ACP and Antigravity fixes prevent several stuck-running states.",
+    "**Git and worktrees:** Turn-end Git reads and checkpoint folder walks avoid duplicate work. Branch pickers refresh after external worktree changes, reference switches are refused while another thread works in the shared checkout, and hook-created nested checkouts no longer block task-folder creation. Cleanup skips symlinks and runtime pruning removes replaced builds and abandoned staging.",
+    "**Mobile:** Loading older activity keeps the scroll position, image previews reuse gallery resources, legacy models appear in search, and Android scheduled-task time dialogs close after confirmation. Usage cards and account badges gain readability fixes, and file mentions display their names in message previews.",
+    "**Daily workflow:** Sidebar thread rows show the environment instead of the branch. PDF links are clickable, project-action and scheduled-task editors keep drafts after outside clicks, script-only drafts stay reachable, and browser-tab history survives navigation. Word, OpenDocument, and RTF attachment parsing receives many fidelity fixes.",
+    "**Agent tools and integrations:** PR watches recognize checks that already passed and ignore superseded cancellations. GitLab finds fork merge requests, TanStack Source PRs work across clients including private repositories, delegated-task tools give better recovery information, and thread reads distinguish automatic compaction from user input."
+  ]
+}
