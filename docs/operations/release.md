@@ -853,6 +853,18 @@ server update remains deferred until activation is authorized.
    remains **staged, verification pending** until its new server actually runs.
    Do not call the rollout fully verified while any required check is pending.
 
+For every party, review the incoming changes and update `scripts/fork-release-summary.json`
+with 1–8 short, user-facing highlights grouped by outcome rather than copied commit titles.
+Explain visible changes, performance work, and relevant caveats without inventing benchmarks
+or claiming installation/activation. Include mobile changes when relevant. Set `previousRelease`
+to the last published nightly tag and `upstreamBase` to this release's upstream commit.
+CI rejects a missing or stale summary instead of silently recycling old notes.
+
+The script adds counts and expandable commit references from the last published nightly,
+separating upstream changes from new, updated, and removed fork patches; patch-equivalent
+rebased commits are not new changes. Publication needs full commit history, release tags,
+and upstream's `main`; missing or divergent history fails publication.
+
 ## Fork Android preview delivery
 
 For personal fork release parties, use this script instead of ad-hoc native

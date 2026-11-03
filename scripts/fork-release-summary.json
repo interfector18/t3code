@@ -1,0 +1,14 @@
+{
+  "previousRelease": "v0.1.9-nightly.20261114.71",
+  "upstreamBase": "304cf149c8cb5e2c1ab921428773361752d7aff2",
+  "highlights": [
+    "**Thread and client performance:** Long threads load with less work; typing, answering questions and opening a thread from a draft avoid unrelated rerenders. Completed Markdown blocks render less, and diff-folder expansion no longer repeatedly rescans or remounts the viewer.",
+    "**Server responsiveness:** Local desktop connections skip compression, delegated tasks avoid reading entire parent histories, and Linux and Windows process launches move off the RPC event loop. Terminal output is batched, and the next turn no longer waits for the previous Git-status refresh.",
+    "**Storage and recovery:** Migrated databases can return freed space to disk, and cleanup prunes checkpoint refs belonging to deleted threads. Restarts retain prompts providers never accepted, stalled starts recover more cleanly, and unsupported persisted effects no longer block later thread work.",
+    "**Git and pull requests:** Git-status refresh avoids redundant local and untracked scans, unrelated repositories no longer serialize Pull, and checkpoint restore handles submodules. Selected-file commits preserve other merge conflicts; PR actions update immediately and activity reads report truncation and rate limits.",
+    "**Terminals and files:** Large pastes reach terminal programs intact, mouse reports match drawn cells, and file links handle more paths and filenames. Expired composer uploads recover before sending, distinct images stay distinct, and large folders and archive previews do less blocking work.",
+    "**Agents and sessions:** Cursor Task subagents stream live into child threads and Cursor advertises manual compaction. Claude session names follow thread renames, Codex model changes avoid restarting shared sessions, and ACP loading, cancellation and background continuations receive fixes.",
+    "**Mobile:** Android menus close correctly with the keyboard, timestamps honor the system clock format, and removed environments disappear from launcher shortcuts. iOS image viewing, GIFs, text scaling and accessibility improve; Diagnostics and other views stay above floating tabs, and transient permission loading no longer falsely denies task control.",
+    "**Updates, access and navigation:** Desktop startup and renderer reload recover from busy or restarting backends, prepared remote updates can be retried, and Linux release builds enforce their glibc requirement. HTTPS session cookies become Secure, project-folder search supports fuzzy matches, and settings edits update optimistically across environments."
+  ]
+}
