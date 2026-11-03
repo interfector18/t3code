@@ -1,0 +1,13 @@
+{
+  "previousRelease": "v0.1.7-nightly.20261110.63",
+  "upstreamBase": "0a9abddaee00ff1495e77a03dd4fafa73c3cd4cb",
+  "highlights": [
+    "**T3 Connect sign-ins:** Agent sign-ins can be approved through T3 Connect, including on app.t3.codes, instead of typing a code. Hosted agent approvals no longer fail with \"Your session cannot approve\".",
+    "**Long threads:** Opening a long thread reads from its latest segments instead of its whole history, and the thread title menu opens without a half-second wait on desktop.",
+    "**Turn reliability:** Claude turns whose CLI exits early fail instead of running forever, detached sessions keep pending approvals, steers no longer strand subagent results, and quitting no longer restarts the relay mid-shutdown.",
+    "**Git and PRs:** Commit, push & PR no longer pushes the default branch into itself, the branch menu keeps PR status, PR watches stop flapping while workflows await approval, and Forgejo finds merged PRs with deleted branches.",
+    "**Updates and providers:** Failed updates report download diagnostics, status checks no longer make mise download missing CLIs, long OpenCode command turns no longer time out, and Cursor/OpenCode usage reads are lighter.",
+    "**Mobile:** The Android feed stays at its end after keyboard or sidebar changes, the Files sheet scrolls its tree, sidebar and composer transitions stop reflowing, and iOS composer and search bars move with their columns.",
+    "**Polish:** New threads use the last used project, scrolling pans expanded images and Mermaid diagrams, resize handles follow touch drags, and dropdowns over the desktop title bar respond to clicks."
+  ]
+}
