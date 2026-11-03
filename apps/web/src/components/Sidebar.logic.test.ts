@@ -13,6 +13,7 @@ import {
   hasUnseenCompletion,
   resolveSidebarRowThreadId,
   belongsInSidebarWorkingShelf,
+  resolveSidebarWorkingShelfEnabled,
   isSidebarEnvironmentDisconnected,
   orderItemsByPreferredIds,
   pinOrderKeyBetween,
@@ -928,6 +929,13 @@ describe("unseen completion with background work", () => {
 });
 
 describe("Working shelf (beta)", () => {
+  it("restores the Working section when boring folders hide working threads", () => {
+    expect(resolveSidebarWorkingShelfEnabled(true, true, false)).toBe(false);
+    expect(resolveSidebarWorkingShelfEnabled(false, true, true)).toBe(true);
+    expect(resolveSidebarWorkingShelfEnabled(true, true, true)).toBe(true);
+    expect(resolveSidebarWorkingShelfEnabled(false, false, true)).toBe(false);
+    expect(resolveSidebarWorkingShelfEnabled(true, false, false)).toBe(true);
+  });
   const runtime = {
     status: "running" as const,
     activeRunId: null,

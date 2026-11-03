@@ -964,6 +964,14 @@ export function sidebarFolderExpansionKeys(group: {
   ];
 }
 
+export function resolveSidebarWorkingShelfEnabled(
+  workingShelfEnabled: boolean,
+  hasProjectFolders: boolean,
+  hideWorkingFolderThreads: boolean,
+): boolean {
+  return hasProjectFolders ? hideWorkingFolderThreads : workingShelfEnabled;
+}
+
 export function filterSidebarProjectFolderThreads<T extends SidebarThreadSummary>(
   threads: readonly T[],
   input: {

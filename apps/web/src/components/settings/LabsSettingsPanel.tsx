@@ -59,7 +59,7 @@ function BoringSidebarHideWorkingRow() {
   return (
     <SettingsRow
       {...searchableSetting("boring-sidebar-hide-working")}
-      description="Hide running and monitoring threads in project folders until they need you. Pinned threads and the open thread stay visible."
+      description="Move running and monitoring threads from project folders into the Working section until they need you. Pinned threads stay pinned."
       control={
         <Switch
           checked={settings.boringSidebarHideWorkingThreads}

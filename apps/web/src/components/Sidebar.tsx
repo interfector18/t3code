@@ -188,6 +188,7 @@ import {
   firstValidTimestampMs,
   belongsInSidebarWorkingShelf,
   filterSidebarProjectFolderThreads,
+  resolveSidebarWorkingShelfEnabled,
   isSidebarEnvironmentDisconnected,
   isSidebarNestedLinkClick,
   isTrailingDoubleClick,
@@ -439,10 +440,13 @@ function useSidebarThreads(input: {
     folderGroups,
     keepEmptyFolders: keepEmpty,
   } = input;
-  // Folders already separate the work, so boring mode has no Working shelf.
-  const workingShelfEnabled =
-    useClientSettings((s) => s.sidebarWorkingShelfEnabled) && folderGroups === null;
+  const workingShelfSetting = useClientSettings((s) => s.sidebarWorkingShelfEnabled);
   const hideWorkingFolderThreads = useClientSettings((s) => s.boringSidebarHideWorkingThreads);
+  const workingShelfEnabled = resolveSidebarWorkingShelfEnabled(
+    workingShelfSetting,
+    folderGroups !== null,
+    hideWorkingFolderThreads,
+  );
   const environmentConnections = useEnvironmentConnectionSummaries();
   const liveShellEnvironmentIds = useAtomValue(liveShellEnvironmentIdsAtom);
   const disconnectedEnvironmentIds = new Set(
