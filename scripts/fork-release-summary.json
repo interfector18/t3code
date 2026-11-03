@@ -1,0 +1,14 @@
+{
+  "previousRelease": "v0.1.8-nightly.20261111.67",
+  "upstreamBase": "4947db07d319df031028338e71128b5e8ff45b1f",
+  "highlights": [
+    "**Long-thread performance:** Opens, sends and thread listings read less history; paging reuses timeline indexes, streaming avoids republishing unchanged state, and collapsed reasoning previews stop processing whole blocks.",
+    "**Mobile:** Startup fetches slimmer environment configuration, thread lists stop reshuffling as environments connect, and Android scrolling, composer cursor, review sheets and large-text labels behave more reliably.",
+    "**Updates and remote hosts:** Legacy service updates recover compatibility, self-updates move the t3 command to the new runtime, and AppImage updates clean up old processes and mounts. SSH and Tailscale recovery report failures more clearly; Windows gains background services.",
+    "**Agents and background work:** Fixes preserve delegated results, wake waiting parents, stop orphaned provider jobs, and recover interrupted or compacted sessions. One unresponsive provider no longer stalls every thread's effects.",
+    "**Storage and diagnostics:** Writes keep moving while readers pin the WAL, cleanup sizes worktrees faster and preserves hidden edits, and CLI migrations respect server ownership. Diagnostics Resource History keeps updating while open.",
+    "**Language and accessibility:** Settings can switch UI language, with Spanish, Chinese, French, German, Japanese, Korean, Portuguese and Russian support. Screen-reader titles and notices convey thread status more clearly.",
+    "**Chat, files and reviews:** Reply from assistant hover actions, drag project folders onto the sidebar, keep text selection while scrolling, and retain diff scroll positions. Office previews improve; GitLab review threads can be resolved from Summary and Timeline.",
+    "**Fork maintenance:** Upstream now protects cleanup from broken Git worktree pointers, replacing our duplicate patch. Project multiselect, folder Working/snooze controls, persistent sessions and project-specific worktree roots remain integrated."
+  ]
+}
