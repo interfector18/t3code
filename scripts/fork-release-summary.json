@@ -1,0 +1,12 @@
+{
+  "previousRelease": "v0.1.11-nightly.20261123.79",
+  "upstreamBase": "7c42bb1c5c49b346a3d3b029a7637694c397e966",
+  "highlights": [
+    "**Less background work and faster completion:** Linux Git commands avoid forking the whole server, steady terminal commands stop polling the process table every second, and finished provider turns no longer wait for checkpoint capture. Message search, older-history loading, base-branch caching, and new-worktree startup avoid unnecessary work. These are targeted improvements, not measured fleet-wide CPU savings or database compaction.",
+    "**Safer updates and remote connections:** Desktop updates re-download missing installers; server rollback and skipped-update reasons are clearer, and restored failed updates can retry. A second desktop no longer stops a remote server it did not launch. Newly linked remote threads open without a reload, and local clone paths preserve # and ?.",
+    "**Mobile and chat polish:** Typed pairing codes use the displayed server address, preview links accept only HTTP(S), swipe labels overlap less, and new-thread composers stay above the keyboard without an available model. Model choices survive queued-message edits, waiting parents no longer look like they are thinking, and assistant turns no longer show the changed-files card on web or mobile.",
+    "**Git and project reliability:** Storage cleanup handles slow worktree walks and merged subagent worktrees; restoring a removed worktree runs setup scripts. Git hooks find their worktree project, unusual paths preserve trailing spaces, reviews stay pinned to the commit read, GitHub issue statuses are supported, and stack auto-merge uses GitHub's includeStack.",
+    "**Providers and background runs:** Claude background timers survive restart and context estimates follow the last main-model pass. OpenCode model and skill discovery updates more reliably, ACP refuses unsupported models without abandoning sessions, and provider startup shows its real step. Workflow saves no longer wait for active agent steps, and workflow hooks have a run-rate limit.",
+    "**Permissions, previews, and everyday editing:** Sign-ins still in progress are cancelled when other sessions are revoked; delegated links, workflow changes, project scripts, and layout commands enforce their required grants. Preview isolation and request limits tighten. Settings and search Escape handling, IME input, Markdown and Office previews, and emoji-safe text truncation receive many focused fixes."
+  ]
+}
