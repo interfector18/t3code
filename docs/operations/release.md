@@ -813,6 +813,11 @@ server update remains deferred until activation is authorized.
    remains **staged, verification pending** until its new server actually runs.
    Do not call the rollout fully verified while any required check is pending.
 
+Fork CI generates release notes from the last published nightly, separating the upstream
+merge-base range from new, updated, and removed fork patches. Patch-equivalent rebased commits
+are not new changes. The publish job needs full commit history, release tags, and upstream's
+`main`; missing or divergent history fails publication instead of inventing a changelog.
+
 ## Fork Android preview delivery
 
 For personal fork release parties, use this script instead of ad-hoc native
