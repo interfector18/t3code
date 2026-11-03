@@ -1,0 +1,14 @@
+{
+  "previousRelease": "v0.1.8-nightly.20261110.66",
+  "upstreamBase": "fd9b2c3eaabd72e852e068c9d41c467e07c11ee1",
+  "highlights": [
+    "**Performance:** New worktrees refresh their Git index once instead of repeatedly re-hashing files. PR checks avoid full thread histories; terminal focus avoids whole-sidebar renders, and idle Find releases searched text.",
+    "**Server updates:** Committed updates repoint the service unit to the selected runtime. Database backups can copy while the server is running when cloning is unavailable; desktop shutdown waits for its local server.",
+    "**Agent reliability:** Provider-instance switches preserve active turns, stopping turns keep queued sends, and delegated task cancellation reports interruption. Imported ACP sessions retain native history; OpenCode tracks shell and image jobs.",
+    "**Mobile:** Code blocks regain syntax colours, question-card file links open the viewer, and subscription widgets stop expiring against already-reset windows. Images opened by agents remain visible across clients.",
+    "**Chat and navigation:** Screen-reader announcements expose agent messages and steps. Questions can be answered while normal sends are blocked; diff selections and Viewed files survive navigation, and PR links target the named location.",
+    "**Desktop and remote:** Clear stale GPU caches after Electron upgrades, retry reconnecting environments, and reuse known machine addresses for link requests. Open in runs locally when the desktop shares a background server's T3 home.",
+    "**Projects and search:** Quoted phrase search finds messages and comments. Cloned repository URLs use their own folders, scheduled-task edits retain workspaces, and worktree branch comparisons no longer inherit the base branch's PR.",
+    "**Reviews and usage:** Watched GitHub PRs react to host events. GitLab adds merged-request reverts and line-range review comments; Claude subagent output counts correctly, and Grok/Cursor usage gains pace indicators."
+  ]
+}
