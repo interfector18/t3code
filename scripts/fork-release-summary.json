@@ -1,0 +1,12 @@
+{
+  "previousRelease": "v0.1.6-nightly.20261104.55",
+  "upstreamBase": "8b44f42b14c8e273156474a924ccf29680dd7857",
+  "highlights": [
+    "**Mobile:** Android and iPad layouts adapt better to window width: sidebars float over medium-width pages, inspectors become sheets on narrower screens, and Android pane transitions keep the screen filled.",
+    "**Recovery and performance:** Runs that never started can retry after recovery. Recovery, settlement, and agent startup avoid unnecessary database reads, reducing work in larger environments.",
+    "**Claude:** The model picker can include models reported by your installed Claude Code, alongside the bundled catalog and custom models.",
+    "**Files and tools:** MCP and OpenCode images display more reliably. Terminal file links use filesystem checks, missing-file caches stay thread-local, and diffs load selected-file metadata before patches.",
+    "**Polish:** Usage tables, thread status rows, and dialog titles are easier to read. This release tracks upstream 0.1.7 and retains our sidebar controls.",
+    "**Fork releases:** Update notes now use a reviewed summary of what changed, with the generated commit references kept below for traceability. Installation and server activation remain separate steps."
+  ]
+}
