@@ -157,7 +157,18 @@ project's folder comes last and shows only while it has active threads. Click a 
 close it. A closed folder shows how many threads it holds, and a dot when one of them
 needs you. Use the pen button on a folder, or right-click it, to start a thread in that project.
 Pinned threads stay above the folders, and Snoozed and Settled stay below them. In this mode you
-cannot drag threads, and the Working section is off. Each device keeps its own choice.
+cannot drag threads. Each device keeps its own choice.
+
+Turn on **Settings → Labs → Hide working threads in project folders** to move running and
+monitoring threads into the Working section until they need your attention. Pinned threads stay
+pinned. Projects with no remaining visible threads follow the same empty-folder rules above.
+Turn the setting off to return working threads to their folders and hide the Working section.
+This applies to web and desktop only.
+
+Use a project folder's Snooze button to snooze its idle active and pinned threads together.
+Running or monitoring threads and pending approvals stay visible. Existing pending questions
+can be snoozed for later without losing the request; a new question wakes the thread early.
+Choose a preset or a custom wake time; individual threads can still be woken from Snoozed.
 
 ## Settle finished work
 
