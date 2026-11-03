@@ -532,6 +532,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
+    id: "boring-sidebar-hide-working",
+    title: msg("Hide working threads in project folders"),
+    to: "/settings/labs",
+    searchTerms: [msg("boring sidebar hide running monitoring active threads project folders")],
+  },
+  {
     id: "guest-links",
     title: msg("Guest links"),
     to: "/settings/labs",
