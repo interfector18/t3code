@@ -1,0 +1,14 @@
+{
+  "previousRelease": "v0.1.9-nightly.20261112.68",
+  "upstreamBase": "9a35ab0afeae64ac7c3bf92d674ead365cf55e10",
+  "highlights": [
+    "**Thread performance:** Cold opens and older history pages do less indexing, threads start loading while sockets connect, and queue edits, steering and shell reads avoid full histories. Streaming thinking and plans reuse timeline rows.",
+    "**Database and usage:** Database writes move off the server event loop, long migrations report progress and resume after restart, and Usage shows costs and tokens without waiting for a full scan. Usage-history reads allocate less.",
+    "**Terminals and files:** Large terminal histories attach with less transfer overhead and persist without rewriting all output. Open documents stop reloading after every agent command; reopened files show host edits, and spreadsheet rows and columns can be resized.",
+    "**Updates and remote hosts:** Nightly discovery handles GitHub ordering, update downloads retry transient failures, and servers reconnect promptly after app updates. AppImage exits clean up surviving processes; service selection and SSH forward recovery are safer.",
+    "**Mobile:** Cold launches display cached thread rows sooner, tab round trips refresh server changes, and Android sheets keep their controls reachable. Terminal font, theme and cell-size changes behave correctly; secret fields gain a visibility toggle.",
+    "**Agents and background work:** Stop waits for settlement instead of polling, forced stops preserve newly started follow-ups, and detached ACP sessions accept model changes. Antigravity gains native goals; OpenCode reads usage limits from its connected server.",
+    "**Projects and reviews:** PR worktrees preserve local branch commits, cleanup waits for settlement and keeps nested repositories, and terminals recreate cleaned-up worktrees. PR watches react to completed check suites and merge-queue changes.",
+    "**Settings and navigation:** Secret references can be checked before saving, readiness-probe timeouts are configurable, and eligible Codex models expose cyber access selection. Project filters explain hidden active threads, and the host can stay awake while agents work."
+  ]
+}
