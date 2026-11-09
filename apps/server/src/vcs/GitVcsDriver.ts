@@ -143,7 +143,8 @@ export interface CreateWorktreeOptions {
   readonly progress?: CreateWorktreeProgress;
   /** Null or omitted defers to the checkout's t3.json. */
   readonly submodules?: WorktreeSubmodules | null;
-  readonly worktreesDirectory?: string;
+  /** Absolute parent for new worktrees, already chosen by WorktreeRoots; defaults to the T3 home folder. */
+  readonly worktreesRoot?: string;
   /** Clone the checkout from the macOS worktree checkout cache. */
   readonly fastCheckout?: boolean;
 }

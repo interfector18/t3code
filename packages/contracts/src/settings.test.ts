@@ -159,10 +159,10 @@ describe("ServerSettings secret providers", () => {
   it("keeps an unknown kind or a longer label from invalidating the rest of the settings", () => {
     const openbao = { kind: "openbao", label: "V".repeat(65), config: { address: "https://x" } };
     const decoded = decodeServerSettings({
-      worktreesDirectory: "/work",
+      worktreeRoots: ["/work"],
       secretProviders: { vault: openbao, personal: onePassword("my.1password.com") },
     });
-    expect(decoded.worktreesDirectory).toBe("/work");
+    expect(decoded.worktreeRoots).toEqual(["/work"]);
     expect(encodeServerSettings(decoded).secretProviders).toEqual({
       vault: openbao,
       personal: onePassword("my.1password.com"),
