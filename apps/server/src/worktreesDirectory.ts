@@ -3,6 +3,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
+import type { ServerSettings as ServerSettingsData } from "@t3tools/contracts";
+import { configuredWorktreeRoots } from "@t3tools/shared/serverSettings";
 import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
 
 import * as ServerConfig from "./config.ts";
@@ -28,20 +30,44 @@ export function isFilesystemRoot(directory: string, path: Path.Path): boolean {
 }
 
 export function managedWorktreesDirectories(
-  settings: {
-    readonly worktreesDirectory: string;
-    readonly previousWorktreesDirectories: ReadonlyArray<string>;
-  },
+  settings: Pick<
+    ServerSettingsData,
+    "worktreeRoots" | "projectSettingsOverrides" | "previousWorktreesDirectories"
+  >,
   defaultDir: string,
   path: Path.Path,
   home: string,
 ): ReadonlyArray<string> {
   const directories = new Set([defaultDir]);
-  for (const setting of [settings.worktreesDirectory, ...settings.previousWorktreesDirectories]) {
+  for (const setting of [
+    ...configuredWorktreeRoots(settings),
+    ...settings.previousWorktreesDirectories,
+  ]) {
     const directory = resolveWorktreesDirectory(setting, defaultDir, path, home);
     if (directory !== null) directories.add(directory);
   }
   return [...directories];
+}
+
+export interface WorktreeRootCandidate {
+  readonly root: string;
+  readonly ready: boolean;
+  readonly freeBytes: number;
+  /** Counted per drive: roots on one drive share its load. */
+  readonly activeThreads: number;
+}
+
+/** Most free space per active thread wins; earlier roots win ties. */
+export function pickWorktreeRoot<Candidate extends WorktreeRootCandidate>(
+  candidates: ReadonlyArray<Candidate>,
+): Candidate | null {
+  let best: { readonly candidate: Candidate; readonly score: number } | null = null;
+  for (const candidate of candidates) {
+    if (!candidate.ready) continue;
+    const score = candidate.freeBytes / (1 + candidate.activeThreads);
+    if (best === null || score > best.score) best = { candidate, score };
+  }
+  return best?.candidate ?? null;
 }
 
 // Client paths/branches are untrusted; recreate only real paths matching managed-folder/repo/branch.
@@ -69,10 +95,12 @@ export const makeIsManagedWorktreePath = Effect.gen(function* () {
     if (path.resolve(worktreePath) !== worktreePath) return false;
     const settings = yield* serverSettings.getSettings.pipe(
       Effect.orElseSucceed(() => ({
-        worktreesDirectory: "",
+        worktreeRoots: [],
+        projectSettingsOverrides: {},
         previousWorktreesDirectories: [],
       })),
     );
+    // A missing root may be an unmounted drive; recreating under it would fill the parent disk.
     const roots = yield* Effect.forEach(
       managedWorktreesDirectories(
         settings,
@@ -80,11 +108,11 @@ export const makeIsManagedWorktreePath = Effect.gen(function* () {
         path,
         yield* HostProcess.HomeDirectory,
       ),
-      realLocation,
+      (root) => fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => null)),
     );
     const candidate = yield* realLocation(worktreePath);
     return roots.some((root) => {
-      if (isFilesystemRoot(root, path)) return false;
+      if (root === null || isFilesystemRoot(root, path)) return false;
       const relative = path.relative(root, candidate);
       const segments = relative.split(path.sep);
       return (
