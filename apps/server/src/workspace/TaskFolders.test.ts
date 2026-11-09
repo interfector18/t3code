@@ -12,6 +12,7 @@ import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
 import * as ServerConfig from "../config.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as TaskFolders from "./TaskFolders.ts";
 import * as TaskFolderStore from "./TaskFolderStore.ts";
@@ -111,6 +112,13 @@ it.live("lays a plain wrapper out as links around its repositories' worktrees", 
       yield* run(unborn, "init", "-b", "main");
       state.workspaceRoot = shop;
       state.trackedFolders = tracked(api, web, unpicked, unborn, path.join(shop, "notes"));
+      const customRoot = path.join(tmp, "custom-worktrees");
+      yield* fileSystem.makeDirectory(customRoot);
+      const settings = yield* ServerSettings.ServerSettingsService;
+      yield* settings.updateSettings({
+        worktreeRoots: [path.join(tmp, "missing-drive")],
+        projectSettingsOverrides: { [projectId]: { worktreeRoots: [customRoot] } },
+      });
 
       const { taskFolder, branch } = yield* create("feature", [
         { path: api },
@@ -118,6 +126,7 @@ it.live("lays a plain wrapper out as links around its repositories' worktrees", 
         { path: unborn },
       ]);
       const root = taskFolder.root;
+      assert.equal(path.dirname(path.dirname(root)), customRoot);
 
       assert.equal(branch, "feature");
       assert.deepEqual(

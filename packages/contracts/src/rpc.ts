@@ -45,7 +45,7 @@ import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
 import * as RpcGroup from "effect/rpc/RpcGroup";
 import * as RpcMiddleware from "effect/rpc/RpcMiddleware";
-import { NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { NonNegativeInt, ProjectId, TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { SecretSourceCheckResult } from "./settingsSecretValue.ts";
 import { SecretReference } from "./secretReference.ts";
 import {
@@ -413,6 +413,7 @@ import {
   StorageCleanupReport,
   DatabaseReclaimError,
   DatabaseStorageStatus,
+  WorktreeRootStatus,
   ServerSettings,
   ServerSettingsError,
   ClientServerSettingsPatch,
@@ -576,6 +577,7 @@ export const WS_METHODS = {
   serverRunStorageCleanup: "server.runStorageCleanup",
   serverGetStorageCleanupReport: "server.getStorageCleanupReport",
   serverGetDatabaseStorage: "server.getDatabaseStorage",
+  serverGetWorktreeRoots: "server.getWorktreeRoots",
   serverReclaimDatabaseSpace: "server.reclaimDatabaseSpace",
   peerLinksList: "peerLinks.list",
   peerLinksNames: "peerLinks.names",
@@ -914,6 +916,13 @@ const WsServerGetDatabaseStorageRpc = Rpc.make(WS_METHODS.serverGetDatabaseStora
   payload: Schema.Struct({}),
   success: Schema.NullOr(DatabaseStorageStatus),
   stream: true,
+  error: EnvironmentAuthorizationError,
+});
+
+const WsServerGetWorktreeRootsRpc = Rpc.make(WS_METHODS.serverGetWorktreeRoots, {
+  /** Null reads the environment's roots; a project reads its effective roots. */
+  payload: Schema.Struct({ projectId: Schema.NullOr(ProjectId) }),
+  success: Schema.Struct({ roots: Schema.Array(WorktreeRootStatus) }),
   error: EnvironmentAuthorizationError,
 });
 
@@ -2415,6 +2424,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetStorageCleanupReportRpc,
   WsServerGetDatabaseStorageRpc,
   WsServerGetSettingsRpc,
+  WsServerGetWorktreeRootsRpc,
   WsServerReclaimDatabaseSpaceRpc,
   WsServerUpdateSettingsRpc,
   WsPeerLinksListRpc,

@@ -96,7 +96,7 @@ function layer(input: {
     ),
     Layer.provide(
       ServerSettings.ServerSettingsService.layerTest({
-        worktreesDirectory: input.worktreesDirectory ?? "",
+        worktreeRoots: input.worktreesDirectory ? [input.worktreesDirectory] : [],
         previousWorktreesDirectories: [...(input.previousWorktreesDirectories ?? [])],
       }),
     ),
