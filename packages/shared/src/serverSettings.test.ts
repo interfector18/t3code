@@ -906,16 +906,23 @@ describe("serverSettings helpers", () => {
   });
 });
 
-describe("worktreesDirectory", () => {
-  it("remembers previous custom locations so their worktrees stay managed", () => {
-    const first = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, { worktreesDirectory: "/a" });
+describe("worktreeRoots", () => {
+  it("remembers roots dropped from every scope so their worktrees stay managed", () => {
+    const project = ProjectId.make("project-1");
+    const first = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, { worktreeRoots: ["/a"] });
     expect(first.previousWorktreesDirectories).toEqual([]);
-    const second = applyServerSettingsPatch(first, { worktreesDirectory: "/b" });
+    const second = applyServerSettingsPatch(first, { worktreeRoots: ["/b", "/c"] });
+    expect(second.worktreeRoots).toEqual(["/b", "/c"]);
     expect(second.previousWorktreesDirectories).toEqual(["/a"]);
-    const reset = applyServerSettingsPatch(second, { worktreesDirectory: "" });
-    expect(reset.previousWorktreesDirectories).toEqual(["/a", "/b"]);
-    const back = applyServerSettingsPatch(reset, { worktreesDirectory: "/a" });
-    expect(back.previousWorktreesDirectories).toEqual(["/b"]);
+    const scoped = applyServerSettingsPatch(second, {
+      projectSettingsOverrides: { [project]: { worktreeRoots: ["/a", "/ssd"] } },
+    });
+    expect(scoped.previousWorktreesDirectories).toEqual([]);
+    const reset = applyServerSettingsPatch(scoped, {
+      worktreeRoots: [],
+      projectSettingsOverrides: { [project]: null },
+    });
+    expect(reset.previousWorktreesDirectories).toEqual(["/b", "/c", "/a", "/ssd"]);
   });
 });
 
