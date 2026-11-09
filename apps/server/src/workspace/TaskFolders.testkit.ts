@@ -125,7 +125,7 @@ export const layerTaskFoldersWithGit = (
     ),
     Layer.provide(ManagedPolicy.layerTest(policy)),
     Layer.provide(layerWorkflow),
-    Layer.provide(
+    Layer.provideMerge(
       Layer.mergeAll(
         Layer.mock(ProjectStore.ProjectStoreV2)({
           get: () => Effect.succeedSome(project()),
@@ -135,6 +135,7 @@ export const layerTaskFoldersWithGit = (
             ),
         }),
         Layer.mock(ProjectionStore.ProjectionStoreV2)({
+          getThreadWorktreePaths: () => Effect.succeed([]),
           getThreadShell: () =>
             Effect.succeed(
               state.thread === null
