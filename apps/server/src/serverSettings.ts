@@ -436,7 +436,10 @@ const HISTORY_RESTORED_DRIVERS: ReadonlySet<ProviderDriverKind> = new Set(
 );
 const decodeLegacyWorktreeSettingsJsonExit = Schema.decodeUnknownExit(
   Schema.fromJsonString(
-    Schema.Struct({ worktreeBaseDirectory: Schema.optionalKey(Schema.String) }),
+    Schema.Struct({
+      worktreeBaseDirectory: Schema.optionalKey(Schema.String),
+      worktreesDirectory: Schema.optionalKey(Schema.String),
+    }),
   ),
 );
 
@@ -794,6 +797,7 @@ const make = Effect.gen(function* () {
     let legacySourceControl: Parameters<typeof migrateLegacySourceControlSettings>[1] = {};
     let parseFailure = Option.none<unknown>();
     let legacyWorktreeDirectory = "";
+    let legacyWorktreesDirectory = "";
 
     if (yield* readConfigExists) {
       const raw = yield* readRawConfig;
@@ -826,6 +830,7 @@ const make = Effect.gen(function* () {
         const legacy = decodeLegacyWorktreeSettingsJsonExit(raw);
         if (legacy._tag === "Success") {
           legacyWorktreeDirectory = legacy.value.worktreeBaseDirectory?.trim() ?? "";
+          legacyWorktreesDirectory = legacy.value.worktreesDirectory?.trim() ?? "";
         }
       }
     }
@@ -892,16 +897,20 @@ const make = Effect.gen(function* () {
         ? settings
         : migrateLegacyProviderSettings(settings, legacyProviders, providerHistory),
     );
-    // Retire the fork's old setting without losing its location or overriding a newer choice.
-    const worktreeMigrated = legacyWorktreeDirectory
-      ? {
-          ...loaded,
-          worktreesDirectory: loaded.worktreesDirectory || legacyWorktreeDirectory,
-          previousWorktreesDirectories: [
-            ...new Set([...loaded.previousWorktreesDirectories, legacyWorktreeDirectory]),
-          ],
-        }
-      : loaded;
+    // Retire single-folder settings without losing their location or overriding a newer list.
+    const legacyRoot = legacyWorktreesDirectory || legacyWorktreeDirectory;
+    const worktreeMigrated =
+      legacyRoot && loaded.worktreeRoots.length === 0
+        ? {
+            ...loaded,
+            worktreeRoots: [legacyRoot],
+            previousWorktreesDirectories: [
+              ...new Set(
+                [...loaded.previousWorktreesDirectories, legacyWorktreeDirectory].filter(Boolean),
+              ),
+            ],
+          }
+        : loaded;
     const folded = settingsFileTrusted
       ? foldLegacyProjectSettings(worktreeMigrated, legacyProjectRows)
       : worktreeMigrated;
