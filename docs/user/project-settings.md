@@ -195,12 +195,21 @@ itself, or **Skip** to leave them for a setup script. It resolves in the same or
 workspace default: a `"worktreeSubmodules"` value in the `t3.json` of the branch being checked out
 applies when the project and environment are both on **Inherit**.
 
-## Worktree location
+## Worktree locations
 
-New worktrees go in the `worktrees` folder of the T3 home directory. To put them somewhere else,
-such as another drive, set **Settings → Worktrees → Worktree location** to an absolute path like
-`D:\worktrees` or `~/worktrees`. The setting is per machine. Existing worktrees stay where they
-are, and cleanup covers both the default folder and the custom one.
+New worktrees go in the `worktrees` folder of the T3 home directory. To put them on other drives,
+list absolute folders, one per line, in **Settings → Worktrees → Worktree locations**, such as
+`D:\worktrees` or `~/worktrees`. Select a project to give it its own list, for example fast SSDs
+for a large project and HDDs for the rest.
+
+With several folders, each new worktree goes to the one with the most free space per active thread
+on its drive. A thread counts as active while a turn is running or waiting. The row shows each
+folder's free space and load.
+
+T3 Code never creates a listed folder, so a worktree never lands on the wrong disk while a drive is
+unmounted. Missing folders are skipped, and if none is usable, creating a worktree fails. The
+setting is per machine. Existing worktrees stay where they are, and cleanup still covers folders you
+remove from the list.
 
 ## Fast worktree checkout on macOS
 

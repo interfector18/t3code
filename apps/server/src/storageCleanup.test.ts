@@ -1921,7 +1921,7 @@ describe("orphan worktree reports", () => {
           }
           if (location === "contains") fixture.setProjectRoots([fixture.repo, `${source}/nested`]);
           fixture.setSettings({
-            worktreesDirectory: location === "contains" ? source : fixture.repo,
+            worktreeRoots: [location === "contains" ? source : fixture.repo],
           });
           expect((yield* fixture.service.runNow).entries).toEqual([]);
           expect(yield* fixture.fs.exists(`${source}/nested/deep`)).toBe(true);
@@ -1954,7 +1954,7 @@ describe("orphan worktree reports", () => {
           );
           const realWorktree = `${customFolder}/seeded`;
           yield* fixture.command(fixture.repo, ["worktree", "add", "-b", "seeded", realWorktree]);
-          fixture.setSettings({ worktreesDirectory: customFolder });
+          fixture.setSettings({ worktreeRoots: [customFolder] });
           fixture.setThreads([
             shell({ branch: "feature", worktreePath: fixture.worktree }),
             shell({

@@ -1,9 +1,11 @@
 import type {
+  EnvironmentId,
+  ProjectId,
+  WorktreeRootState,
   StorageCleanupReport,
   StorageCleanupSettings,
   WorktreeCleanupRules,
 } from "@t3tools/contracts";
-import { resolvePastedPath } from "@t3tools/shared/path";
 import { resolveWorktreeCleanup } from "@t3tools/shared/projectSettings";
 import { useRef, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
@@ -22,7 +24,8 @@ import { AnimatedHeight } from "../AnimatedHeight";
 import { Button } from "../ui/button";
 import { toastManager } from "../ui/toast";
 
-import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import { useEnvironmentQuery } from "../../state/query";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
 import {
@@ -49,63 +52,107 @@ import {
 } from "./useScopedSettings";
 import { settingsScopeEnvironmentLabel } from "./settingsScopeAxis";
 
-export function WorktreesDirectoryRow() {
+const WORKTREE_ROOT_STATE_LABELS: Record<Exclude<WorktreeRootState, "ready">, string> = {
+  missing: "Missing: mount the drive or create the folder",
+  "not-writable": "Not writable",
+  invalid: "Not an absolute folder on this machine",
+};
+
+function parseWorktreeRoots(value: string): string[] {
+  return [
+    ...new Set(
+      value
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function WorktreeRootsStatus({
+  environmentId,
+  projectId,
+}: {
+  environmentId: EnvironmentId;
+  projectId: ProjectId | null;
+}) {
+  const { data } = useEnvironmentQuery(
+    serverEnvironment.worktreeRoots({ environmentId, input: { projectId } }),
+  );
+  if (!data) return null;
+  return (
+    <ul className="mt-2 space-y-1 text-muted-foreground text-xs">
+      {data.roots.map((root) => (
+        <li key={root.root} className="flex flex-wrap gap-x-2">
+          <span className="truncate font-mono text-foreground">{root.root}</span>
+          <span>
+            {root.state === "ready"
+              ? `${root.freeBytes === null ? "?" : formatBytes(root.freeBytes)} free · ${root.activeThreads} active`
+              : WORKTREE_ROOT_STATE_LABELS[root.state]}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function WorktreeRootsRow() {
   const { connectedEnvironments, targets } = useSettingsScope();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
-  const mixed = useScopedSettingsMixed(["worktreesDirectory"]);
+  const mixed = useScopedSettingsMixed(["worktreeRoots"]);
   const edited = useRef(false);
-  const draft = useRef("");
   if (
     connectedEnvironments.some(
-      (environment) =>
-        environment.serverConfig?.environment.capabilities.worktreesDirectory !== true,
+      (environment) => environment.serverConfig?.environment.capabilities.worktreeRoots !== true,
     )
   )
     return null;
-  const scopeKey = targets.map((target) => target.environmentId).join(",");
+  const scopeKey = targets.map((target) => `${target.environmentId}:${target.projectId}`).join(",");
+  const saved = settings.worktreeRoots.join("\n");
+  const single = targets.length === 1 ? targets[0]! : null;
 
   return (
     <SettingsRow
       {...searchableSetting("storage-worktrees-location")}
       description={
-        "Folder where new worktrees are created, on any drive, such as D:\\worktrees or ~/worktrees. Existing worktrees stay where they are. Leave empty to use the T3 home folder."
+        "Folders for new worktrees, one per line. Each goes to the folder with the most free space per active thread. Missing folders are skipped, never created. Empty uses the T3 home folder."
       }
       serverScoped
-      settingKeys={["worktreesDirectory"]}
+      settingKeys={["worktreeRoots"]}
       resetAction={
-        mixed || settings.worktreesDirectory !== "" ? (
+        mixed || settings.worktreeRoots.length > 0 ? (
           <SettingResetButton
-            label="worktree location"
-            onClick={() => updateSettings({ worktreesDirectory: "" })}
+            label="worktree locations"
+            onClick={() => updateSettings({ worktreeRoots: [] })}
           />
         ) : null
       }
       control={
-        <Input
-          key={`${scopeKey}:${mixed}:${settings.worktreesDirectory}`}
-          aria-label="Worktree location"
+        <Textarea
+          key={`${scopeKey}:${mixed}:${saved}`}
+          aria-label="Worktree locations"
           autoCapitalize="none"
           spellCheck={false}
+          size="sm"
           placeholder={mixed ? "Mixed" : "Default"}
-          defaultValue={mixed ? "" : settings.worktreesDirectory}
-          onFocus={(event) => {
-            draft.current = event.target.value;
-          }}
-          onChange={(event) => {
+          defaultValue={mixed ? "" : saved}
+          onChange={() => {
             edited.current = true;
-            draft.current = resolvePastedPath(draft.current, event.target.value);
-            event.target.value = draft.current;
           }}
           onBlur={(event) => {
-            const value = event.target.value.trim();
-            if (edited.current && (mixed || value !== settings.worktreesDirectory))
-              updateSettings({ worktreesDirectory: value });
+            const roots = parseWorktreeRoots(event.target.value);
+            if (edited.current && (mixed || roots.join("\n") !== saved))
+              updateSettings({ worktreeRoots: roots });
             edited.current = false;
           }}
         />
       }
-    />
+    >
+      {single !== null && !mixed ? (
+        <WorktreeRootsStatus environmentId={single.environmentId} projectId={single.projectId} />
+      ) : null}
+    </SettingsRow>
   );
 }
 

@@ -72,7 +72,11 @@ export const make = Effect.gen(function* () {
     function* (realPath) {
       const within = (root: string | null) => root !== null && isWithinRoot(path, realPath, root);
       const worktreeSettings = yield* settings.getSettings.pipe(
-        Effect.orElseSucceed(() => ({ worktreesDirectory: "", previousWorktreesDirectories: [] })),
+        Effect.orElseSucceed(() => ({
+          worktreeRoots: [],
+          projectSettingsOverrides: {},
+          previousWorktreesDirectories: [],
+        })),
       );
       const home = yield* HostProcess.HomeDirectory;
       const managedDirectories = managedWorktreesDirectories(

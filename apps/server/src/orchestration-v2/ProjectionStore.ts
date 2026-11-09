@@ -616,6 +616,8 @@ export interface ProjectionStoreV2Shape {
   ) => Effect.Effect<Record<ThreadId, string>, ProjectionStoreV2Error>;
   readonly getThreadWorktreePaths: (options?: {
     readonly includeArchived?: boolean;
+    /** Only threads with a run in flight; `waiting` counts, as it often sits on builds and tests. */
+    readonly inFlightOnly?: boolean;
   }) => Effect.Effect<
     ReadonlyArray<{ readonly threadId: ThreadId; readonly worktreePath: string }>,
     ProjectionStoreV2Error
@@ -8215,6 +8217,15 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
         WHERE deleted_at IS NULL
           ${options?.includeArchived === true ? sql`` : sql`AND json_extract(payload_json, '$.archivedAt') IS NULL`}
           AND json_extract(payload_json, '$.worktreePath') IS NOT NULL
+          ${
+            options?.inFlightOnly === true
+              ? sql`AND EXISTS (
+                  SELECT 1 FROM orchestration_v2_projection_runs r
+                  WHERE r.thread_id = orchestration_v2_projection_threads.thread_id
+                    AND r.status IN ('preparing', 'queued', 'starting', 'running', 'waiting')
+                )`
+              : sql``
+          }
       `.pipe(
         Effect.map((rows) =>
           rows.map((row) => ({

@@ -5813,7 +5813,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
       }),
     );
 
-    it.effect("creates worktrees under the configured worktrees directory", () =>
+    it.effect("creates worktrees under the chosen worktrees root", () =>
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const pathService = yield* Path.Path;
@@ -5824,7 +5824,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
 
         const created = yield* driver.createWorktree(
           { cwd, path: null, refName: initialBranch, newRefName: "feature/custom-dir" },
-          { worktreesDirectory },
+          { worktreesRoot: worktreesDirectory },
         );
         assert.equal(
           pathService.dirname(created.worktree.path),
@@ -5843,7 +5843,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         yield* fileSystem.writeFileString(leftover, "my notes");
         const recreated = yield* driver.createWorktree(
           { cwd, path: null, refName: initialBranch, newRefName: "feature/custom-dir" },
-          { worktreesDirectory },
+          { worktreesRoot: worktreesDirectory },
         );
         assert.notEqual(recreated.worktree.path, created.worktree.path);
         assert.equal(
@@ -5851,22 +5851,6 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           "feature/custom-dir",
         );
         assert.deepEqual(yield* fileSystem.readDirectory(created.worktree.path), ["notes.txt"]);
-
-        const error = yield* driver
-          .createWorktree(
-            { cwd, path: null, refName: initialBranch, newRefName: "feature/relative-dir" },
-            { worktreesDirectory: "relative/worktrees" },
-          )
-          .pipe(Effect.flip);
-        assert.match(error.detail, /must be an absolute folder on this machine/);
-
-        const rootError = yield* driver
-          .createWorktree(
-            { cwd, path: null, refName: initialBranch, newRefName: "feature/root-dir" },
-            { worktreesDirectory: "/" },
-          )
-          .pipe(Effect.flip);
-        assert.match(rootError.detail, /not a drive root/);
       }),
     );
 
@@ -5887,7 +5871,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
             for (const branch of ["feat/a", "feat-a"]) {
               const created = yield* driver.createWorktree(
                 { cwd, path: null, refName: initialBranch, newRefName: branch },
-                { worktreesDirectory },
+                { worktreesRoot: worktreesDirectory },
               );
               paths.add(created.worktree.path);
               assert.equal(yield* git(created.worktree.path, ["branch", "--show-current"]), branch);
@@ -5919,7 +5903,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         for (const branch of branches) {
           const created = yield* driver.createWorktree(
             { cwd, path: null, refName: initialBranch, newRefName: branch },
-            { worktreesDirectory },
+            { worktreesRoot: worktreesDirectory },
           );
           const folder = pathService.basename(created.worktree.path);
           assert.isAtMost(Buffer.byteLength(folder), 40);

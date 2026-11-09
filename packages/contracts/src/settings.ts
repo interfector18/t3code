@@ -1165,6 +1165,22 @@ export const WorktreeCleanup = Schema.NullOr(
 );
 export type WorktreeCleanup = typeof WorktreeCleanup.Type;
 
+export const WorktreeRoots = Schema.Array(TrimmedString);
+export type WorktreeRoots = typeof WorktreeRoots.Type;
+
+export const WorktreeRootState = Schema.Literals(["ready", "missing", "not-writable", "invalid"]);
+export type WorktreeRootState = typeof WorktreeRootState.Type;
+
+export const WorktreeRootStatus = Schema.Struct({
+  /** As configured; the T3 home folder when the list is empty. */
+  root: Schema.String,
+  state: WorktreeRootState,
+  freeBytes: Schema.NullOr(Schema.Number),
+  /** Threads with a run in flight whose worktree is under this root's drive. */
+  activeThreads: Schema.Number,
+});
+export type WorktreeRootStatus = typeof WorktreeRootStatus.Type;
+
 export const PROJECT_SCOPED_SERVER_SETTING_KEYS = [
   "worktreeCleanup",
   "defaultModelSelection",
@@ -1172,6 +1188,7 @@ export const PROJECT_SCOPED_SERVER_SETTING_KEYS = [
   "defaultThreadEnvMode",
   "newWorktreesStartFromOrigin",
   "worktreeSubmodules",
+  "worktreeRoots",
   "defaultAutoPull",
   "defaultProjectScripts",
   "enableAgentBrowserAccess",
@@ -1210,6 +1227,7 @@ export const ProjectSettingsOverrides = Schema.Struct({
   defaultThreadEnvMode: Schema.optionalKey(ThreadEnvMode),
   newWorktreesStartFromOrigin: Schema.optionalKey(Schema.Boolean),
   worktreeSubmodules: ForwardCompatibleOptional(WorktreeSubmodules),
+  worktreeRoots: Schema.optionalKey(WorktreeRoots),
   defaultAutoPull: Schema.optionalKey(Schema.Boolean),
   defaultProjectScripts: Schema.optionalKey(Schema.Array(ProjectScript)),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
@@ -1364,7 +1382,8 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(Schema.decodeSync(StorageCleanupSettings)({}))),
   ),
 
-  worktreesDirectory: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
+  /** Empty means the T3 home `worktrees` folder; new worktrees go to the least loaded root. */
+  worktreeRoots: WorktreeRoots.pipe(Schema.withDecodingDefault(Effect.succeed([]))),
   /** macOS only, Labs beta: clone new worktrees from a cached checkout instead of writing every file. */
   fastWorktreeCheckout: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   /** Server-maintained history keeps old worktrees eligible for cleanup and review diffs. */
@@ -1826,7 +1845,7 @@ export const ServerSettingsPatch = Schema.Struct({
       logsAfterDays: Schema.optionalKey(StorageRetentionDays),
     }),
   ),
-  worktreesDirectory: Schema.optionalKey(TrimmedString),
+  worktreeRoots: Schema.optionalKey(WorktreeRoots),
   fastWorktreeCheckout: Schema.optionalKey(Schema.Boolean),
   responseStreamingMode: Schema.optionalKey(ResponseStreamingMode),
   enableProviderUpdateChecks: Schema.optionalKey(Schema.Boolean),

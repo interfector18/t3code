@@ -256,10 +256,12 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "storage-worktrees-location",
-    title: "Worktree location",
+    title: "Worktree locations",
     to: "/settings/worktrees",
-    scope: "environment-defaults",
-    searchTerms: ["worktree location folder directory path drive external disk"],
+    scope: "project-defaults",
+    searchTerms: [
+      "worktree location folder directory path drive external disk ssd hdd balance multiple",
+    ],
   },
   {
     id: "storage-artifacts",

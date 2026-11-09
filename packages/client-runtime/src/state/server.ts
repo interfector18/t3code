@@ -1461,6 +1461,13 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:trace-diagnostics",
       tag: WS_METHODS.serverGetTraceDiagnostics,
     }),
+    worktreeRoots: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:worktree-roots",
+      tag: WS_METHODS.serverGetWorktreeRoots,
+      // Saving roots changes the answer; free space and load are read fresh on each visit.
+      refreshTrigger: ({ environmentId }) => settingsValueAtom(environmentId),
+      idleTtlMs: 0,
+    }),
     npmRelease: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:npm-release",
       tag: WS_METHODS.serverGetNpmRelease,
