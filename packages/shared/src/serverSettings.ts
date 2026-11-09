@@ -383,6 +383,34 @@ function patchedIdleCompaction(
   return globalIdleCompaction(current) === "off" ? "off" : "onReturn";
 }
 
+/** Every configured worktree root in any scope. */
+export function configuredWorktreeRoots(
+  settings: Pick<ServerSettings, "worktreeRoots" | "projectSettingsOverrides">,
+): ReadonlyArray<string> {
+  return [
+    ...settings.worktreeRoots,
+    ...Object.values(settings.projectSettingsOverrides).flatMap(
+      (overrides) => overrides.worktreeRoots ?? [],
+    ),
+  ];
+}
+
+// Roots dropped from every scope stay managed, so cleanup and review still reach their worktrees.
+function worktreeRootHistory(
+  current: Pick<
+    ServerSettings,
+    "worktreeRoots" | "projectSettingsOverrides" | "previousWorktreesDirectories"
+  >,
+  next: Pick<ServerSettings, "worktreeRoots" | "projectSettingsOverrides">,
+): ReadonlyArray<string> {
+  const configured = new Set(configuredWorktreeRoots(next));
+  const history = current.previousWorktreesDirectories.filter((root) => !configured.has(root));
+  for (const root of configuredWorktreeRoots(current)) {
+    if (root !== "" && !configured.has(root) && !history.includes(root)) history.push(root);
+  }
+  return history;
+}
+
 export function applyServerSettingsPatch(
   current: ServerSettings,
   rawPatch: ServerSettingsPatch,
@@ -544,20 +572,7 @@ export function applyServerSettingsPatch(
     ...(patch.providerInstances !== undefined
       ? { providerInstances: patch.providerInstances }
       : {}),
-    ...(patch.worktreesDirectory !== undefined &&
-    patch.worktreesDirectory !== current.worktreesDirectory
-      ? {
-          previousWorktreesDirectories: [
-            ...current.previousWorktreesDirectories.filter(
-              (directory) => directory !== patch.worktreesDirectory,
-            ),
-            ...(current.worktreesDirectory !== "" &&
-            !current.previousWorktreesDirectories.includes(current.worktreesDirectory)
-              ? [current.worktreesDirectory]
-              : []),
-          ],
-        }
-      : {}),
+    ...(patch.worktreeRoots !== undefined ? { worktreeRoots: patch.worktreeRoots } : {}),
     // Per host, a patched field replaces the saved one: deepMerge would keep a cleared account pin.
     ...(sourceControlHostsPatch !== undefined
       ? {
@@ -659,6 +674,7 @@ export function applyServerSettingsPatch(
   );
   const nextWithReplacements = {
     ...withIdleCompaction(nextWithReplacementsBase, patchedIdleCompaction(current, patch)),
+    previousWorktreesDirectories: worktreeRootHistory(current, nextWithReplacementsBase),
     ...deriveLegacyProjectOverrides(nextWithReplacementsBase),
     backgroundActivity: normalizedBackgroundActivity,
     automaticGitFetchInterval: resolvedBackgroundActivity.automaticGitFetchInterval,
