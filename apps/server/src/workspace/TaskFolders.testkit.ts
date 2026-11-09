@@ -76,7 +76,7 @@ export const layerTaskFoldersWithGit = (state: TaskFoldersTestState) => {
   return TaskFolders.layer.pipe(
     Layer.provideMerge(TaskFolderStore.layer),
     Layer.provide(layerWorkflow),
-    Layer.provide(
+    Layer.provideMerge(
       Layer.mergeAll(
         Layer.mock(ProjectStore.ProjectStoreV2)({
           get: () => Effect.succeedSome(project()),
@@ -86,6 +86,7 @@ export const layerTaskFoldersWithGit = (state: TaskFoldersTestState) => {
             ),
         }),
         Layer.mock(ProjectionStore.ProjectionStoreV2)({
+          getThreadWorktreePaths: () => Effect.succeed([]),
           getThreadShell: () =>
             Effect.succeed(
               state.thread === null
