@@ -5,7 +5,6 @@ import { AdvancedSettings } from "./AdvancedSettings";
 import { BranchNamingSettings } from "./BranchNamingSettings";
 import { WorktreeSubmodulesRow } from "./ProjectDefaultsSettings";
 import { ScopedSwitch } from "./ScopedSwitch";
-import { useSettingsScope } from "./SettingsScopeContext";
 import {
   SettingResetButton,
   SettingsPageContainer,
@@ -13,7 +12,7 @@ import {
   SettingsSection,
 } from "./settingsLayout";
 import { useSearchableSetting } from "./settingsSearch";
-import { WorktreeCleanupSection, WorktreesDirectoryRow } from "./StorageSettings";
+import { WorktreeCleanupSection, WorktreeRootsRow } from "./StorageSettings";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
 
 function StartFromRemoteRow() {
@@ -59,16 +58,13 @@ function StartFromRemoteRow() {
 export function WorktreesSettingsPanel() {
   const gt = useGT();
   const searchableSetting = useSearchableSetting();
-  const { scope } = useSettingsScope();
-  const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
-
   return (
     <SettingsPageContainer>
       <SettingsSection
         id="worktree-creation"
         title={gt("Creation", { $context: "settings section about creating worktrees" })}
       >
-        {!isProjectScope && <WorktreesDirectoryRow />}
+        <WorktreeRootsRow />
         <StartFromRemoteRow />
         <AdvancedSettings targetIds={[searchableSetting("worktree-submodules").id]}>
           <WorktreeSubmodulesRow />
