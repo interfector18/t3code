@@ -236,7 +236,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           }),
         );
         const settings = yield* service.getSettings;
-        assert.equal(settings.worktreesDirectory, current || "~/old/worktrees");
+        assert.deepEqual(settings.worktreeRoots, [current || "~/old/worktrees"]);
         assert.deepEqual(settings.previousWorktreesDirectories, [
           "/prior/worktrees",
           "~/old/worktrees",
@@ -245,7 +245,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
         const raw = yield* fs.readFileString(config.settingsPath);
         assert.notInclude(raw, "worktreeBaseDirectory");
         const saved = yield* decodeServerSettingsJson(raw);
-        assert.equal(saved.worktreesDirectory, settings.worktreesDirectory);
+        assert.notInclude(raw, '"worktreesDirectory"');
+        assert.deepEqual(saved.worktreeRoots, settings.worktreeRoots);
         assert.deepEqual(saved.previousWorktreesDirectories, settings.previousWorktreesDirectories);
       }).pipe(Effect.provide(layerServerSettings())),
   );
