@@ -89,7 +89,8 @@ import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as SourceControlProvider from "@t3tools/source-control-core/server/SourceControlProvider";
 import * as SourceControlRateLimit from "@t3tools/source-control-core/server/SourceControlRateLimit";
 import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
-import type { ChangeRequest } from "@t3tools/contracts";
+import type { ChangeRequest, WorktreeRootStatus } from "@t3tools/contracts";
+import { makeWorktreeRoots } from "../worktreeRoots.ts";
 
 export interface GitActionProgressReporter {
   readonly publish: (event: GitActionProgressEvent) => Effect.Effect<void, never>;
@@ -125,6 +126,10 @@ export class GitManager extends Context.Service<
       input: VcsCreateWorktreeInput,
       options?: GitVcsDriver.CreateWorktreeOptions,
     ) => Effect.Effect<VcsCreateWorktreeResult, GitCommandError>;
+    /** Where new worktrees can go for the environment (null) or a project, as the next one would see it. */
+    readonly getWorktreeRoots: (
+      projectId: ProjectId | null,
+    ) => Effect.Effect<ReadonlyArray<WorktreeRootStatus>>;
     readonly status: (
       input: VcsStatusInput,
     ) => Effect.Effect<VcsStatusResult, GitManagerServiceError>;
@@ -751,13 +756,48 @@ export const make = Effect.gen(function* () {
     }
     return result;
   });
-  const readWorktreeCreationSettings = serverSettingsService.getSettings.pipe(
-    Effect.map((settings) => ({
-      worktreesDirectory: settings.worktreesDirectory,
-      fastCheckout: settings.fastWorktreeCheckout,
-    })),
-    Effect.orElseSucceed(() => ({ worktreesDirectory: "" })),
+  const worktreeRoots = yield* makeWorktreeRoots(
+    threads.getThreadWorktreePaths({ includeArchived: true, inFlightOnly: true }).pipe(
+      Effect.map((rows) => rows.map((row) => row.worktreePath)),
+      Effect.orElseSucceed(() => []),
+    ),
   );
+  // A generated path takes the least loaded root; an explicit path (recreation) keeps its own.
+  const createManagedWorktree = Effect.fnUntraced(function* (
+    input: VcsCreateWorktreeInput,
+    options: GitVcsDriver.CreateWorktreeOptions,
+    context: { readonly cwd: string; readonly threadId?: ThreadId | undefined } = input,
+  ) {
+    const resolved = yield* projectSettingsFor(context).pipe(
+      Effect.map(({ settings }) => settings),
+      Effect.orElseSucceed(() => null),
+    );
+    const create = (worktreesRoot?: string) =>
+      gitCore.createWorktree(input, {
+        fastCheckout: resolved?.fastWorktreeCheckout ?? false,
+        submodules: resolved?.worktreeSubmodules ?? null,
+        ...options,
+        ...(worktreesRoot === undefined ? {} : { worktreesRoot }),
+      });
+    if (input.path != null) return yield* create();
+    return yield* Effect.scoped(
+      worktreeRoots
+        .reserve(resolved?.worktreeRoots ?? [], input.cwd)
+        .pipe(Effect.flatMap((root) => create(root))),
+    );
+  });
+  const getWorktreeRoots: GitManager["Service"]["getWorktreeRoots"] = Effect.fn(
+    "GitManager.getWorktreeRoots",
+  )(function* (projectId) {
+    const settings = yield* serverSettingsService.getSettings.pipe(
+      Effect.orElseSucceed(() => null),
+    );
+    const roots =
+      settings === null ? [] : resolveProjectSettings(settings, projectId).settings.worktreeRoots;
+    return (yield* worktreeRoots.describe(roots)).map(
+      ({ root, state, freeBytes, activeThreads }) => ({ root, state, freeBytes, activeThreads }),
+    );
+  });
   // Turning fast checkout off deletes its cache right away, not at the next worktree.
   yield* serverSettingsService.streamChanges.pipe(
     Stream.map((settings) => settings.fastWorktreeCheckout),
@@ -769,18 +809,7 @@ export const make = Effect.gen(function* () {
   const createWorktree: GitManager["Service"]["createWorktree"] = Effect.fn(
     "GitManager.createWorktree",
   )(function* (input, options) {
-    const submodules =
-      options?.submodules !== undefined
-        ? options.submodules
-        : yield* projectSettingsFor(input).pipe(
-            Effect.map(({ settings }) => settings.worktreeSubmodules),
-            Effect.orElseSucceed(() => null),
-          );
-    const result = yield* gitCore.createWorktree(input, {
-      ...(yield* readWorktreeCreationSettings),
-      ...options,
-      submodules,
-    });
+    const result = yield* createManagedWorktree(input, options ?? {});
     if (input.newRefName && input.baseRefName) {
       yield* shareBranchBase(input.cwd, input.newRefName);
     }
@@ -3109,19 +3138,10 @@ export const make = Effect.gen(function* () {
         });
       }
 
-      const worktree = yield* gitCore.createWorktree(
-        {
-          cwd: input.cwd,
-          refName: localPullRequestBranch,
-          path: null,
-        },
-        {
-          ...(yield* readWorktreeCreationSettings),
-          submodules: yield* projectSettingsFor(input).pipe(
-            Effect.map(({ settings }) => settings.worktreeSubmodules),
-            Effect.orElseSucceed(() => null),
-          ),
-        },
+      const worktree = yield* createManagedWorktree(
+        { cwd: input.cwd, refName: localPullRequestBranch, path: null },
+        {},
+        input,
       );
       yield* ensureExistingWorktreeUpstream(worktree.worktree.path);
       yield* maybeRunSetupScript(worktree.worktree.path);
@@ -3387,6 +3407,7 @@ export const make = Effect.gen(function* () {
 
   return GitManager.of({
     createWorktree,
+    getWorktreeRoots,
     localStatus,
     remoteStatus,
     status,
