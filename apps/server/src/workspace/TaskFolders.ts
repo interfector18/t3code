@@ -39,7 +39,6 @@ import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 
-import * as ServerConfig from "../config.ts";
 import * as GitWorkflowService from "../git/GitWorkflowService.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
@@ -51,7 +50,7 @@ import {
   removeEmptyDirectory,
   type RemoveEmptyDirectoryError,
 } from "../vcs/removeEmptyDirectory.ts";
-import { resolveWorktreesDirectory } from "../worktreesDirectory.ts";
+import { makeWorktreeRoots } from "../worktreeRoots.ts";
 import { isWithinRoot } from "./KnownWorkspaces.ts";
 import * as LayoutCommandApprovals from "./LayoutCommandApprovals.ts";
 import * as TaskFolderStore from "./TaskFolderStore.ts";
@@ -319,7 +318,6 @@ const make = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const digest = yield* Digest.Digest;
-  const config = yield* ServerConfig.ServerConfig;
   const settings = yield* ServerSettings.ServerSettingsService;
   const projects = yield* ProjectStore.ProjectStoreV2;
   const git = yield* GitWorkflowService.GitWorkflowService;
@@ -335,6 +333,12 @@ const make = Effect.gen(function* () {
   const layoutCommandsOffBy = ManagedPolicy.deniedBy(managedPolicy, "worktreeLayoutCommands");
   // Set when the administrator's limit leaves no thread in Full access: "Example Corp limits…".
   const fullAccessOff = managedRuntimeModeDenial(managedPolicy.summary, "full-access");
+  const worktreeRoots = yield* makeWorktreeRoots(
+    projections.getThreadWorktreePaths({ includeArchived: true, inFlightOnly: true }).pipe(
+      Effect.map((rows) => rows.map((row) => row.worktreePath)),
+      Effect.orElseSucceed(() => []),
+    ),
+  );
 
   const exists = (target: string) =>
     fileSystem.exists(target).pipe(Effect.orElseSucceed(() => false));
@@ -812,20 +816,15 @@ const make = Effect.gen(function* () {
     taskPlan: TaskFolderPlan,
     branch: string,
   ) {
-    const parent = resolveWorktreesDirectory(
-      (yield* settings.getSettings.pipe(Effect.orElseSucceed(() => ({ worktreesDirectory: "" }))))
-        .worktreesDirectory,
-      config.worktreesDir,
-      path,
-      yield* HostProcess.HomeDirectory,
+    const configured = yield* settings.getSettings.pipe(
+      Effect.map(
+        (value) => resolveProjectSettings(value, taskPlan.projectId).settings.worktreeRoots,
+      ),
+      Effect.orElseSucceed(() => []),
     );
-    if (parent === null) {
-      return yield* new TaskFolderError({
-        operation: "create",
-        detail:
-          "The worktree location must be an absolute folder on this machine, not a drive root. Change it in Settings → Worktrees.",
-      });
-    }
+    const parent = yield* worktreeRoots
+      .reserve(configured, taskPlan.projectRoot)
+      .pipe(Effect.mapError(fail("create", "Could not select a worktree location")));
     const hash = yield* digest.digest(
       Digest.sha256,
       new TextEncoder().encode(`${taskPlan.projectId}\0${taskPlan.anchor}\0${branch}`),
@@ -1092,284 +1091,282 @@ const make = Effect.gen(function* () {
     };
   });
 
-  const create: TaskFolders["Service"]["create"] = Effect.fn("TaskFolders.create")(
-    function* (input) {
-      const taskPlan = input.plan;
-      const listFailed = fail("create", "Could not list branches");
-      const names = yield* branchNames(
-        taskPlan.repositories.map((repository) => repository.path),
-      ).pipe(Effect.mapError(listFailed));
-      const projectNames = taskPlan.projectIsRepository
-        ? yield* git.listLocalBranchNames(taskPlan.projectRoot).pipe(Effect.mapError(listFailed))
-        : [];
-      // A temporary name nests under its prefix, which a repository may hold as a branch.
-      const requested =
-        isTemporaryWorktreeBranch(input.branch) &&
-        [...names, projectNames].some((list) =>
-          list.some((existing) => input.branch.startsWith(`${existing}/`)),
-        )
-          ? flattenTemporaryWorktreeBranchName(input.branch)
-          : input.branch;
-      // A name the project folder already has is Git's to refuse, as for a single worktree.
-      const branch = projectNames.some((existing) => collides(existing, requested))
-        ? requested
-        : yield* freeBranchName("create", requested, [...names, projectNames]);
-      const root = yield* allocateRoot(taskPlan, branch);
-      const empty: TaskFolder = {
-        root,
-        projectId: taskPlan.projectId,
-        projectRoot: taskPlan.projectRoot,
-        anchor: taskPlan.anchor,
-        projectPath: path.join(root, path.relative(taskPlan.anchor, taskPlan.projectRoot)),
-        projectIsWorktree: taskPlan.projectIsRepository,
-        repositories: [],
-      };
-      const created: TaskFolderRepository[] = [];
-      let repositoriesStartedFromOrigin = false;
-      const current = (): TaskFolder => ({ ...empty, repositories: [...created] });
-      const checkedOutFrom = [
-        ...(taskPlan.projectIsRepository ? [taskPlan.projectRoot] : []),
-        ...taskPlan.trackedRepositories,
-      ];
-      // A layout command may check out a branch that was already there; a rollback leaves it.
-      const hadBranch = new Set<string>();
-      let layoutStarted = false;
-      // Where this attempt may make the branch: none of them had it when listed.
-      const branchMissingIn = new Set([
-        ...taskPlan.repositories
-          .filter((_, index) => !names[index]!.includes(branch))
-          .map((repository) => repository.path),
-        ...(taskPlan.projectIsRepository && !projectNames.includes(branch)
-          ? [taskPlan.projectRoot]
-          : []),
-      ]);
-      // Where this attempt made the branch: a checkout that fails halfway leaves it behind. Only
-      // a checkout it ran counts, and not one Git refused because another creation made it first.
-      let branchMadeIn: string[] = [];
-      const recordBranch =
-        (cwd: string) =>
-        <A, E>(exit: Exit.Exit<A, E>) =>
-          Effect.sync(() => {
-            const refused =
-              Exit.isFailure(exit) &&
-              exit.cause.reasons.some(
-                (reason) =>
-                  Cause.isFailReason(reason) &&
-                  isGitCommandError(reason.error) &&
-                  reason.error.operation === "GitVcsDriver.createWorktree.createBranch",
-              );
-            if (branchMissingIn.has(cwd) && !refused) branchMadeIn.push(cwd);
-          });
-      return yield* Effect.gen(function* () {
-        yield* fileSystem.makeDirectory(root, { recursive: true });
-        // Recorded before any checkout, so an interrupted creation is still found and removed.
-        yield* store.put(empty);
-        if (input.onClaimed !== undefined) yield* input.onClaimed(empty, branch);
-        const layout = yield* layoutCommand(taskPlan, "create", input.projectCommands);
-        if (layout !== null && "refusal" in layout) {
+  const create: TaskFolders["Service"]["create"] = Effect.fn("TaskFolders.create")(function* (
+    input,
+  ) {
+    const taskPlan = input.plan;
+    const listFailed = fail("create", "Could not list branches");
+    const names = yield* branchNames(
+      taskPlan.repositories.map((repository) => repository.path),
+    ).pipe(Effect.mapError(listFailed));
+    const projectNames = taskPlan.projectIsRepository
+      ? yield* git.listLocalBranchNames(taskPlan.projectRoot).pipe(Effect.mapError(listFailed))
+      : [];
+    // A temporary name nests under its prefix, which a repository may hold as a branch.
+    const requested =
+      isTemporaryWorktreeBranch(input.branch) &&
+      [...names, projectNames].some((list) =>
+        list.some((existing) => input.branch.startsWith(`${existing}/`)),
+      )
+        ? flattenTemporaryWorktreeBranchName(input.branch)
+        : input.branch;
+    // A name the project folder already has is Git's to refuse, as for a single worktree.
+    const branch = projectNames.some((existing) => collides(existing, requested))
+      ? requested
+      : yield* freeBranchName("create", requested, [...names, projectNames]);
+    const root = yield* allocateRoot(taskPlan, branch);
+    const empty: TaskFolder = {
+      root,
+      projectId: taskPlan.projectId,
+      projectRoot: taskPlan.projectRoot,
+      anchor: taskPlan.anchor,
+      projectPath: path.join(root, path.relative(taskPlan.anchor, taskPlan.projectRoot)),
+      projectIsWorktree: taskPlan.projectIsRepository,
+      repositories: [],
+    };
+    const created: TaskFolderRepository[] = [];
+    let repositoriesStartedFromOrigin = false;
+    const current = (): TaskFolder => ({ ...empty, repositories: [...created] });
+    const checkedOutFrom = [
+      ...(taskPlan.projectIsRepository ? [taskPlan.projectRoot] : []),
+      ...taskPlan.trackedRepositories,
+    ];
+    // A layout command may check out a branch that was already there; a rollback leaves it.
+    const hadBranch = new Set<string>();
+    let layoutStarted = false;
+    // Where this attempt may make the branch: none of them had it when listed.
+    const branchMissingIn = new Set([
+      ...taskPlan.repositories
+        .filter((_, index) => !names[index]!.includes(branch))
+        .map((repository) => repository.path),
+      ...(taskPlan.projectIsRepository && !projectNames.includes(branch)
+        ? [taskPlan.projectRoot]
+        : []),
+    ]);
+    // Where this attempt made the branch: a checkout that fails halfway leaves it behind. Only
+    // a checkout it ran counts, and not one Git refused because another creation made it first.
+    let branchMadeIn: string[] = [];
+    const recordBranch =
+      (cwd: string) =>
+      <A, E>(exit: Exit.Exit<A, E>) =>
+        Effect.sync(() => {
+          const refused =
+            Exit.isFailure(exit) &&
+            exit.cause.reasons.some(
+              (reason) =>
+                Cause.isFailReason(reason) &&
+                isGitCommandError(reason.error) &&
+                reason.error.operation === "GitVcsDriver.createWorktree.createBranch",
+            );
+          if (branchMissingIn.has(cwd) && !refused) branchMadeIn.push(cwd);
+        });
+    return yield* Effect.gen(function* () {
+      yield* fileSystem.makeDirectory(root, { recursive: true });
+      // Recorded before any checkout, so an interrupted creation is still found and removed.
+      yield* store.put(empty);
+      if (input.onClaimed !== undefined) yield* input.onClaimed(empty, branch);
+      const layout = yield* layoutCommand(taskPlan, "create", input.projectCommands);
+      if (layout !== null && "refusal" in layout) {
+        return yield* new TaskFolderError({
+          operation: "create",
+          detail: layoutRefusedDetail(layout.refusal),
+        });
+      }
+      if (layout !== null) {
+        const ran = yield* Effect.exit(
+          runLayoutCommand(
+            "create",
+            layout.command,
+            empty,
+            branch,
+            input.baseBranch,
+            taskPlan.repositories.map((repository) => repository.path),
+            // Listed only now: a branch that appeared during the wait is not this attempt's to
+            // delete. Noted only once the command is cleared: one refused after its wait made
+            // nothing to roll back.
+            branchNames(checkedOutFrom).pipe(
+              Effect.mapError(listFailed),
+              Effect.map((before) => () => {
+                for (const [index, repositoryPath] of checkedOutFrom.entries()) {
+                  if (before[index]!.includes(branch)) hadBranch.add(repositoryPath);
+                }
+                branchMadeIn = checkedOutFrom.filter(
+                  (repositoryPath) => !hadBranch.has(repositoryPath),
+                );
+                layoutStarted = true;
+              }),
+            ),
+          ),
+        );
+        // Whatever the command checked out where a repository belongs is the thread's. Adopted
+        // even when the command failed, so the rollback removes it instead of leaking it.
+        const refused: string[] = [];
+        for (const repositoryPath of taskPlan.trackedRepositories) {
+          const checkout = { repositoryPath, worktreePath: mapped(empty, repositoryPath) };
+          if (!(yield* isRepository(checkout.worktreePath))) continue;
+          const reason = yield* unadoptable(checkout, branch);
+          if (reason === null) created.push({ ...checkout, name: path.basename(repositoryPath) });
+          else refused.push(reason);
+        }
+        if (Exit.isFailure(ran)) return yield* Effect.failCause(ran.cause);
+        if (!(yield* exists(empty.projectPath))) {
           return yield* new TaskFolderError({
             operation: "create",
-            detail: layoutRefusedDetail(layout.refusal),
+            detail: `The project's worktree layout command left no folder at ${empty.projectPath}.`,
           });
         }
-        if (layout !== null) {
-          const ran = yield* Effect.exit(
-            runLayoutCommand(
-              "create",
-              layout.command,
-              empty,
-              branch,
-              input.baseBranch,
-              taskPlan.repositories.map((repository) => repository.path),
-              // Listed only now: a branch that appeared during the wait is not this attempt's to
-              // delete. Noted only once the command is cleared: one refused after its wait made
-              // nothing to roll back.
-              branchNames(checkedOutFrom).pipe(
-                Effect.mapError(listFailed),
-                Effect.map((before) => () => {
-                  for (const [index, repositoryPath] of checkedOutFrom.entries()) {
-                    if (before[index]!.includes(branch)) hadBranch.add(repositoryPath);
+        if (taskPlan.projectIsRepository && (yield* isRepository(empty.projectPath))) {
+          const reason = yield* unadoptable(
+            { repositoryPath: taskPlan.projectRoot, worktreePath: empty.projectPath },
+            branch,
+          );
+          if (reason !== null) refused.push(reason);
+        }
+        if (refused.length > 0) {
+          return yield* new TaskFolderError({
+            operation: "create",
+            detail: `The project's worktree layout command must make each checkout with git worktree add on the thread's branch: ${refused.join("; ")}.`,
+          });
+        }
+        const taskFolder: TaskFolder = {
+          ...current(),
+          projectIsWorktree:
+            taskPlan.projectIsRepository && (yield* isRepository(empty.projectPath)),
+        };
+        yield* store.put(taskFolder);
+        return {
+          taskFolder,
+          branch,
+          laidOutByProject: true,
+          repositoriesStartedFromOrigin: false,
+        };
+      }
+      if (taskPlan.projectIsRepository) {
+        yield* fileSystem.makeDirectory(path.dirname(empty.projectPath), { recursive: true });
+        yield* git
+          .createWorktree(
+            {
+              cwd: taskPlan.projectRoot,
+              refName: input.projectStart.refName,
+              newRefName: branch,
+              baseRefName: input.projectStart.baseRefName,
+              path: empty.projectPath,
+            },
+            input.projectProgress === undefined ? {} : { progress: input.projectProgress },
+          )
+          .pipe(Effect.onExit(recordBranch(taskPlan.projectRoot)));
+      } else {
+        yield* linkFolder(taskPlan.projectRoot, empty.projectPath, taskPlan.trackedRepositories);
+      }
+      let finished = 0;
+      // Whatever the project put at a skipped path also stands for the repositories inside it.
+      const skipped: string[] = [];
+      // A repository inside another waits for the one that holds it.
+      const levels = Map.groupBy(
+        taskPlan.repositories,
+        (repository) =>
+          taskPlan.repositories.filter(
+            (other) =>
+              other.path !== repository.path && isWithinRoot(path, repository.path, other.path),
+          ).length,
+      );
+      for (const level of [...levels.keys()].toSorted((left, right) => left - right)) {
+        // Every checkout runs to its end: one stopped halfway is registered in its repository
+        // without being known here, so nothing would remove it.
+        const exits = yield* Effect.forEach(
+          levels.get(level)!,
+          (repository) =>
+            (skipped.some((outer) => isWithinRoot(path, repository.path, outer))
+              ? Effect.succeed(null)
+              : createRepositoryWorktree(
+                  empty,
+                  repository,
+                  branch,
+                  input.startFromOrigin,
+                  input.baseBranch,
+                  recordBranch(repository.path),
+                )
+            ).pipe(
+              Effect.tap((worktree) =>
+                Effect.suspend(() => {
+                  finished += 1;
+                  if (worktree === null) skipped.push(repository.path);
+                  else {
+                    created.push(worktree.repository);
+                    repositoriesStartedFromOrigin ||= worktree.fromOrigin;
                   }
-                  branchMadeIn = checkedOutFrom.filter(
-                    (repositoryPath) => !hadBranch.has(repositoryPath),
+                  return (
+                    input.onRepository?.({
+                      name: repository.name,
+                      done: finished,
+                      total: taskPlan.repositories.length,
+                    }) ?? Effect.void
                   );
-                  layoutStarted = true;
                 }),
               ),
+              Effect.mapError(fail("create", `Could not create the ${repository.name} worktree`)),
+              Effect.exit,
             ),
-          );
-          // Whatever the command checked out where a repository belongs is the thread's. Adopted
-          // even when the command failed, so the rollback removes it instead of leaking it.
-          const refused: string[] = [];
-          for (const repositoryPath of taskPlan.trackedRepositories) {
-            const checkout = { repositoryPath, worktreePath: mapped(empty, repositoryPath) };
-            if (!(yield* isRepository(checkout.worktreePath))) continue;
-            const reason = yield* unadoptable(checkout, branch);
-            if (reason === null) created.push({ ...checkout, name: path.basename(repositoryPath) });
-            else refused.push(reason);
-          }
-          if (Exit.isFailure(ran)) return yield* Effect.failCause(ran.cause);
-          if (!(yield* exists(empty.projectPath))) {
-            return yield* new TaskFolderError({
-              operation: "create",
-              detail: `The project's worktree layout command left no folder at ${empty.projectPath}.`,
-            });
-          }
-          if (taskPlan.projectIsRepository && (yield* isRepository(empty.projectPath))) {
-            const reason = yield* unadoptable(
-              { repositoryPath: taskPlan.projectRoot, worktreePath: empty.projectPath },
-              branch,
-            );
-            if (reason !== null) refused.push(reason);
-          }
-          if (refused.length > 0) {
-            return yield* new TaskFolderError({
-              operation: "create",
-              detail: `The project's worktree layout command must make each checkout with git worktree add on the thread's branch: ${refused.join("; ")}.`,
-            });
-          }
-          const taskFolder: TaskFolder = {
-            ...current(),
-            projectIsWorktree:
-              taskPlan.projectIsRepository && (yield* isRepository(empty.projectPath)),
-          };
-          yield* store.put(taskFolder);
-          return {
-            taskFolder,
-            branch,
-            laidOutByProject: true,
-            repositoriesStartedFromOrigin: false,
-          };
-        }
-        if (taskPlan.projectIsRepository) {
-          yield* fileSystem.makeDirectory(path.dirname(empty.projectPath), { recursive: true });
-          yield* git
-            .createWorktree(
+          { concurrency: REPOSITORY_CONCURRENCY },
+        ).pipe(Effect.uninterruptible);
+        const failed = exits.find(Exit.isFailure);
+        if (failed !== undefined) return yield* Effect.failCause(failed.cause);
+      }
+      const taskFolder = current();
+      yield* store.put(taskFolder);
+      return { taskFolder, branch, laidOutByProject: false, repositoriesStartedFromOrigin };
+    }).pipe(
+      Effect.onError(() =>
+        // Recorded first: a checkout the rollback cannot remove must still be known afterwards.
+        Effect.sync(() => {
+          // So is whether the layout command started, for whoever removes what stays recorded.
+          if (!layoutStarted) neverLaidOut.add(root);
+        }).pipe(
+          Effect.andThen(store.put(current())),
+          Effect.ignoreCause({ log: true }),
+          Effect.andThen(
+            removeLocked(
+              current(),
               {
-                cwd: taskPlan.projectRoot,
-                refName: input.projectStart.refName,
-                newRefName: branch,
-                baseRefName: input.projectStart.baseRefName,
-                path: empty.projectPath,
+                force: true,
+                forget: true,
+                deleteBranch: branch,
+                projectCommands: input.projectCommands,
               },
-              input.projectProgress === undefined ? {} : { progress: input.projectProgress },
-            )
-            .pipe(Effect.onExit(recordBranch(taskPlan.projectRoot)));
-        } else {
-          yield* linkFolder(taskPlan.projectRoot, empty.projectPath, taskPlan.trackedRepositories);
-        }
-        let finished = 0;
-        // Whatever the project put at a skipped path also stands for the repositories inside it.
-        const skipped: string[] = [];
-        // A repository inside another waits for the one that holds it.
-        const levels = Map.groupBy(
-          taskPlan.repositories,
-          (repository) =>
-            taskPlan.repositories.filter(
-              (other) =>
-                other.path !== repository.path && isWithinRoot(path, repository.path, other.path),
-            ).length,
-        );
-        for (const level of [...levels.keys()].toSorted((left, right) => left - right)) {
-          // Every checkout runs to its end: one stopped halfway is registered in its repository
-          // without being known here, so nothing would remove it.
-          const exits = yield* Effect.forEach(
-            levels.get(level)!,
-            (repository) =>
-              (skipped.some((outer) => isWithinRoot(path, repository.path, outer))
-                ? Effect.succeed(null)
-                : createRepositoryWorktree(
-                    empty,
-                    repository,
-                    branch,
-                    input.startFromOrigin,
-                    input.baseBranch,
-                    recordBranch(repository.path),
-                  )
-              ).pipe(
-                Effect.tap((worktree) =>
-                  Effect.suspend(() => {
-                    finished += 1;
-                    if (worktree === null) skipped.push(repository.path);
-                    else {
-                      created.push(worktree.repository);
-                      repositoriesStartedFromOrigin ||= worktree.fromOrigin;
-                    }
-                    return (
-                      input.onRepository?.({
-                        name: repository.name,
-                        done: finished,
-                        total: taskPlan.repositories.length,
-                      }) ?? Effect.void
-                    );
-                  }),
-                ),
-                Effect.mapError(fail("create", `Could not create the ${repository.name} worktree`)),
-                Effect.exit,
-              ),
-            { concurrency: REPOSITORY_CONCURRENCY },
-          ).pipe(Effect.uninterruptible);
-          const failed = exits.find(Exit.isFailure);
-          if (failed !== undefined) return yield* Effect.failCause(failed.cause);
-        }
-        const taskFolder = current();
-        yield* store.put(taskFolder);
-        return { taskFolder, branch, laidOutByProject: false, repositoriesStartedFromOrigin };
-      }).pipe(
-        Effect.onError(() =>
-          // Recorded first: a checkout the rollback cannot remove must still be known afterwards.
-          Effect.sync(() => {
-            // So is whether the layout command started, for whoever removes what stays recorded.
-            if (!layoutStarted) neverLaidOut.add(root);
-          }).pipe(
-            Effect.andThen(store.put(current())),
-            Effect.ignoreCause({ log: true }),
-            Effect.andThen(
-              removeLocked(
-                current(),
-                {
-                  force: true,
-                  forget: true,
-                  deleteBranch: branch,
-                  projectCommands: input.projectCommands,
-                },
-                hadBranch,
-                layoutStarted,
-              ),
+              hadBranch,
+              layoutStarted,
             ),
-            Effect.tap(({ kept }) =>
-              kept.length === 0
-                ? Effect.void
-                : Effect.logWarning("A failed task folder was not fully removed", { root, kept }),
+          ),
+          Effect.tap(({ kept }) =>
+            kept.length === 0
+              ? Effect.void
+              : Effect.logWarning("A failed task folder was not fully removed", { root, kept }),
+          ),
+          Effect.ignoreCause({ log: true }),
+          // A checkout the layout command made and this service refused was deleted as files.
+          Effect.andThen(
+            Effect.forEach(
+              checkedOutFrom,
+              (cwd) => git.pruneWorktrees({ cwd }).pipe(Effect.ignoreCause({ log: true })),
+              { concurrency: REPOSITORY_CONCURRENCY, discard: true },
             ),
-            Effect.ignoreCause({ log: true }),
-            // A checkout the layout command made and this service refused was deleted as files.
-            Effect.andThen(
-              Effect.forEach(
-                checkedOutFrom,
-                (cwd) => git.pruneWorktrees({ cwd }).pipe(Effect.ignoreCause({ log: true })),
-                { concurrency: REPOSITORY_CONCURRENCY, discard: true },
-              ),
-            ),
-            // Only now that no checkout is registered on it; most went with their checkout.
-            Effect.andThen(
-              Effect.forEach(
-                branchMadeIn,
-                (cwd) =>
-                  git.deleteLocalBranch({ cwd, refName: branch, force: true }).pipe(Effect.ignore),
-                { concurrency: REPOSITORY_CONCURRENCY, discard: true },
-              ),
+          ),
+          // Only now that no checkout is registered on it; most went with their checkout.
+          Effect.andThen(
+            Effect.forEach(
+              branchMadeIn,
+              (cwd) =>
+                git.deleteLocalBranch({ cwd, refName: branch, force: true }).pipe(Effect.ignore),
+              { concurrency: REPOSITORY_CONCURRENCY, discard: true },
             ),
           ),
         ),
-        Effect.mapError((cause) =>
-          isTaskFolderError(cause)
-            ? cause
-            : fail("create", "Could not create the worktrees")(cause),
-        ),
-      );
-    },
-  );
+      ),
+      Effect.mapError((cause) =>
+        isTaskFolderError(cause) ? cause : fail("create", "Could not create the worktrees")(cause),
+      ),
+    );
+  }, Effect.scoped);
 
   /** The project's setting for where new worktrees start. */
   const startsFromOrigin = (operation: TaskFolderError["operation"], projectId: ProjectId) =>
