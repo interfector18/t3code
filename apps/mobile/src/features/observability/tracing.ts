@@ -2,7 +2,6 @@ import Constants from "expo-constants";
 import { type ReleaseChannel, releaseResourceAttributes } from "@t3tools/shared/releaseResource";
 import * as RelayTracing from "@t3tools/shared/relayTracing";
 
-import { hasTracingPublicConfig, resolveCloudPublicConfig } from "../cloud/publicConfig";
 import { connectionTracesEnabled } from "./diagnosticsSetting";
 
 export interface TracingConfig {
@@ -24,12 +23,7 @@ const RELEASE_CHANNEL_BY_VARIANT: Readonly<Record<string, ReleaseChannel | undef
 };
 
 export function resolveTracingConfig(): TracingConfig | null {
-  const config = resolveCloudPublicConfig();
-  if (!hasTracingPublicConfig(config)) {
-    return null;
-  }
-  const { tracesUrl, tracesDataset, tracesToken } = config.observability;
-  return { tracesUrl, tracesDataset, tracesToken };
+  return null;
 }
 
 export function layerFromConfig(config: TracingConfig | null, resource: TracingResource) {

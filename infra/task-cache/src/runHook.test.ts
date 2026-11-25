@@ -8,7 +8,7 @@ import * as NodePath from "node:path";
 import { expect, it, vi } from "vite-plus/test";
 import startRunHook from "./runHook.ts";
 
-it("sends telemetry from a detached flusher that the task runner does not wait for", async () => {
+it("never spawns a telemetry flusher or sends reports while keeping cache hooks available", async () => {
   const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "task-cache-flusher-"));
   const reports: string[] = [];
   let finishReturned!: () => void;
@@ -58,10 +58,9 @@ it("sends telemetry from a detached flusher that the task runner does not wait f
     await finish?.();
     finishReturned();
     await Promise.all(flushers);
-    expect(flushers).toHaveLength(1);
-    expect(reports.map((report) => JSON.parse(report).tasks)).toEqual([
-      [{ package: "fixture", task: "build", source: "executed", savedMs: 0 }],
-    ]);
+    expect(finish).toBeDefined();
+    expect(flushers).toHaveLength(0);
+    expect(reports).toEqual([]);
     expect(disconnected).toBe(false);
   } finally {
     finishReturned();

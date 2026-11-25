@@ -1,12 +1,10 @@
 {
-  "previousRelease": "v0.1.11-nightly.20261125.81",
+  "previousRelease": "v0.1.12-nightly.20261125.82",
   "upstreamBase": "1c3f0ee88fc75440e173704cf45eae4d15f2cf95",
   "highlights": [
-    "**Deleted-thread data cleanup:** Deleting a thread now removes its stored history, and startup schedules cleanup for threads deleted before the upgrade. This targets retained deleted-thread data, not general database compaction or a guaranteed reduction in the SQLite file's size.",
-    "**Faster navigation and everyday controls:** Thread switches paint their timeline in the first frame. The current thread gains command-palette actions for settling, pinning, snoozing and more, and the sidebar can be hidden or restored by dragging. Quoted search phrases match their words together; issue navigation and side-panel controls get focused fixes.",
-    "**Workflow coordination:** Named concurrency pools limit how many workflow runs execute at once and queue the rest. Questions support described choices, required reasons, links and recorded answerers, and a waiting question can be withdrawn without cancelling its run. Older paused runs remain visible in Needs you.",
-    "**Update and remote reliability:** Server updates confirm the committed runtime before dropping their backup. Tasks delegated to older linked machines report completion, split terminal output survives reconnecting, and relay clients that ignore shutdown are force-stopped on restart. Startup shows database migration progress.",
-    "**Telemetry controls:** DO_NOT_TRACK is honored, and CI runners skip server telemetry. Windows resource monitoring avoids reading memory and command lines for untracked processes. The earlier removal of provider-account-derived analytics identities remains included; these changes do not mean all analytics is disabled by default.",
-    "**Mobile, providers and previews:** Mobile fixes keyboard positioning in windowed iPad layouts, iOS feed jumps and incoming shares into an existing draft. Claude marketplace skills and imports are more accurate, Pi rewind and background work receive reliability fixes, Grok exposes context usage, and document previews handle more encodings and emoji boundaries."
+    "**Privacy after-party — no new upstream commits:** This fork-only release removes outbound product analytics, analytics identity collection, agent-feedback uploads, relay diagnostic exports, and OpenTelemetry exports and endpoint probes. Saved settings and environment overrides cannot turn these senders back on.",
+    "**Mobile and SDK reporting:** New Android builds omit the crash/startup upload SDK. Clerk telemetry is disabled across web, desktop and mobile, and repository-owned build/cache summary uploads are removed without disabling functional artifact caching.",
+    "**Local diagnostics stay local:** Resource monitoring, CPU/memory history, local logs and local Traces remain available through your authenticated connections. Provider requests, sign-in, updates, remote connections and enabled notification/activity publishing still use the network for their features; independently installed tools and remote services have their own privacy controls.",
+    "**Activation matters:** Publishing does not change already-running apps or servers, and cannot retract previously sent data. Desktop updates and server activation remain in the existing UI; the Android preview is delivered separately for an in-place phone update."
   ]
 }

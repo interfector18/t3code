@@ -13002,5 +13002,6 @@
   "201490988858b511": "retirée par {by}",
   "99451a5d2d40440f": "Retirée par {by}.",
   "3ee30a50b70fffab": "Retirée par {by} : {reason}",
-  "92e129bf413a1220": "retirée"
+  "92e129bf413a1220": "retirée",
+  "0e7c2d8a26317d6b": "La télémétrie sortante est indisponible dans ce fork. Les diagnostics restent sur vos machines."
 }

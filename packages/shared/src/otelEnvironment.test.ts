@@ -239,98 +239,35 @@ describe("OtelEnvironment", () => {
   );
 
   describe("resolveSignalEndpoint", () => {
-    const t3Export = {
-      protocol: "http/json",
-      headers: { "x-key": "t3" },
-      exportIntervalMs: 5_000,
-    } as const;
-    const withLogs = (logs: OtelEnvironment.OtelSignal, disabled = false) => ({
-      ...OtelEnvironment.none,
-      disabled,
-      logs,
-    });
-    const otelExport = OtelEnvironment.OtelSignal.Export({
-      url: "http://otel:4318/v1/logs",
-      variable: "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
-      protocol: "http/protobuf",
-      headers: { "x-key": "otel" },
-    });
-    it.each([
-      {
-        name: "T3CODE_OTLP_*_URL wins over a signal the OTEL variables turned off",
-        otel: withLogs(OtelEnvironment.OtelSignal.Off()),
-        t3Url: "http://t3:4318/v1/logs",
-        expected: {
-          url: "http://t3:4318/v1/logs",
-          export: t3Export,
-          source: "environment" as const,
-          variable: "T3CODE_OTLP_LOGS_URL",
-        },
-      },
-      {
-        name: "an OTEL endpoint brings its headers and protocol over the fallback",
-        otel: withLogs(otelExport),
-        t3Url: " ",
-        expected: {
-          url: "http://otel:4318/v1/logs",
-          export: {
-            protocol: "http/protobuf" as const,
-            headers: { "x-key": "otel" },
-            exportIntervalMs: 5_000,
-          },
-          source: "environment" as const,
-          variable: "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
-        },
-      },
-      {
-        name: "a signal the OTEL variables turned off does not fall through",
-        otel: withLogs(OtelEnvironment.OtelSignal.Off()),
-        t3Url: undefined,
-        expected: undefined,
-      },
-      {
-        name: "an unset signal takes the first non-blank fallback",
-        otel: withLogs(OtelEnvironment.OtelSignal.Unset()),
-        t3Url: undefined,
-        expected: {
-          url: "http://settings:4318/v1/logs",
-          export: t3Export,
-          source: "settings" as const,
-        },
-      },
-      {
-        name: "a desktop bootstrap URL that differs from the setting wins as the desktop's own",
-        otel: withLogs(OtelEnvironment.OtelSignal.Unset()),
-        t3Url: undefined,
-        bootstrapUrl: "http://desktop:4318/v1/logs",
-        expected: {
-          url: "http://desktop:4318/v1/logs",
-          export: t3Export,
-          source: "bootstrap" as const,
-        },
-      },
-      {
-        name: "a desktop bootstrap URL that forwards the setting counts as the setting",
-        otel: withLogs(OtelEnvironment.OtelSignal.Unset()),
-        t3Url: undefined,
-        bootstrapUrl: " http://settings:4318/v1/logs ",
-        expected: {
-          url: "http://settings:4318/v1/logs",
-          export: t3Export,
-          source: "settings" as const,
-        },
-      },
-    ])("$name", ({ otel, t3Url, bootstrapUrl = "", expected }) => {
-      assert.deepStrictEqual(
-        OtelEnvironment.resolveSignalEndpoint(
-          otel,
-          "logs",
-          { url: t3Url, export: t3Export },
-          { bootstrapUrl, settingsUrl: "http://settings:4318/v1/logs" },
-        ),
-        expected,
-      );
-    });
+    it.effect(
+      "suppresses every signal from saved settings, bootstrap, and both environment variable families",
+      () =>
+        Effect.gen(function* () {
+          const otel = yield* load({
+            OTEL_EXPORTER_OTLP_ENDPOINT: "https://must-not-be-contacted.example",
+          });
+          const signalExport = {
+            protocol: "http/json",
+            headers: { authorization: "private" },
+            exportIntervalMs: 1_000,
+          } as const;
+          for (const signal of ["traces", "metrics", "logs"] as const) {
+            for (const url of [undefined, "https://must-not-be-contacted.example"]) {
+              assert.isUndefined(
+                OtelEnvironment.resolveSignalEndpoint(
+                  otel,
+                  signal,
+                  { url, export: signalExport },
+                  {
+                    bootstrapUrl: "https://bootstrap.example",
+                    settingsUrl: "https://settings.example",
+                  },
+                ),
+              );
+            }
+          }
+        }),
+    );
   });
 
   it.effect("an exporter of none keeps the Settings endpoint from re-enabling its signal", () =>
@@ -352,7 +289,7 @@ describe("OtelEnvironment", () => {
           bootstrapUrl: undefined,
           settingsUrl: "http://settings:4318/v1/traces",
         })?.url,
-        "http://settings:4318/v1/traces",
+        undefined,
       );
     }),
   );

@@ -13011,5 +13011,6 @@
   "201490988858b511": "withdrawn by {by}",
   "99451a5d2d40440f": "Withdrawn by {by}.",
   "3ee30a50b70fffab": "Withdrawn by {by}: {reason}",
-  "92e129bf413a1220": "withdrawn"
+  "92e129bf413a1220": "withdrawn",
+  "0e7c2d8a26317d6b": "Outbound telemetry is unavailable in this fork. Diagnostics stay on your machines."
 }

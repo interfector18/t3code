@@ -13002,5 +13002,6 @@
   "201490988858b511": "zurückgezogen von {by}",
   "99451a5d2d40440f": "Zurückgezogen von {by}.",
   "3ee30a50b70fffab": "Zurückgezogen von {by}: {reason}",
-  "92e129bf413a1220": "zurückgezogen"
+  "92e129bf413a1220": "zurückgezogen",
+  "0e7c2d8a26317d6b": "Ausgehende Telemetrie ist in diesem Fork nicht verfügbar. Diagnosedaten bleiben auf deinen Geräten."
 }
