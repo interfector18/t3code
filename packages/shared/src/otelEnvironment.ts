@@ -343,7 +343,7 @@ export const isCiEnvironment = (env: Readonly<Record<string, string | undefined>
   });
 
 /** The cross-tool `DO_NOT_TRACK=1` convention turns off product analytics and relay tracing. */
-export const isDoNotTrackSet = (env: Readonly<Record<string, string | undefined>>) =>
+const isDoNotTrackSet = (env: Readonly<Record<string, string | undefined>>) =>
   T3CODE_TRUE.includes(env.DO_NOT_TRACK?.trim().toLowerCase() ?? "");
 
 export const isRelayTracingEnabled = (env: Readonly<Record<string, string | undefined>>) =>
@@ -372,42 +372,16 @@ export interface SignalEndpoint {
   readonly variable?: string;
 }
 
+// Saved endpoints and environment overrides cannot enable outbound diagnostics in this fork.
 export const resolveSignalEndpoint = (
-  otel: OtelEnvironment,
-  signal: SignalName,
-  t3: { readonly url: string | undefined; readonly export: SignalExport },
-  fallback: { readonly bootstrapUrl: string | undefined; readonly settingsUrl: string | undefined },
-): SignalEndpoint | undefined => {
-  if (otel.disabled) {
-    return undefined;
-  }
-  const t3Url = blankAsUnset(t3.url);
-  if (t3Url !== undefined) {
-    return {
-      url: t3Url,
-      export: t3.export,
-      source: "environment",
-      variable: `T3CODE_OTLP_${signal.toUpperCase()}_URL`,
-    };
-  }
-  return OtelSignal.$match(otel[signal], {
-    Export: ({ url, variable, protocol, headers }): SignalEndpoint => ({
-      url,
-      export: { protocol, headers, exportIntervalMs: t3.export.exportIntervalMs },
-      source: "environment",
-      variable,
-    }),
-    Off: () => undefined,
-    Unset: (): SignalEndpoint | undefined => {
-      const settingsUrl = blankAsUnset(fallback.settingsUrl);
-      // The desktop forwards the saved setting as its bootstrap URL, so only a differing one is
-      // the desktop's own.
-      const url = blankAsUnset(fallback.bootstrapUrl) ?? settingsUrl;
-      if (url === undefined) return undefined;
-      return { url, export: t3.export, source: url === settingsUrl ? "settings" : "bootstrap" };
-    },
-  });
-};
+  _otel: OtelEnvironment,
+  _signal: SignalName,
+  _t3: { readonly url: string | undefined; readonly export: SignalExport },
+  _fallback: {
+    readonly bootstrapUrl: string | undefined;
+    readonly settingsUrl: string | undefined;
+  },
+): SignalEndpoint | undefined => undefined;
 
 /** Give OTLP exporters the accepted resource attributes so their own decoding cannot fail. */
 export const layerResourceAttributes = (attributes: Readonly<Record<string, string>>) =>
