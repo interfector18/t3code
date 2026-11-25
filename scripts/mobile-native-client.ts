@@ -12,7 +12,6 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Random from "effect/Random";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Argument, Command, Flag } from "effect/cli";
@@ -456,7 +455,6 @@ const decodeEasBuilds = Schema.decodeUnknownEffect(
 
 interface RemoteCache {
   readonly url: string;
-  readonly telemetry: string;
   readonly name: string;
   readonly token: string;
 }
@@ -479,7 +477,6 @@ const remoteCache = Effect.fn("nativeClient.remoteCache")(
     const base = endpoint.replace(/\/$/, "");
     return {
       url: `${base}/native-clients`,
-      telemetry: `${base}/telemetry`,
       ...login,
     } satisfies RemoteCache;
   },
@@ -1072,47 +1069,12 @@ const install = Effect.fn("nativeClient.install")(function* (
     yield* command("adb", ["-s", device, "reverse", "tcp:8081", "tcp:8081"]).pipe(Effect.ignore);
 });
 
-const reportTelemetry = Effect.fn("nativeClient.reportTelemetry")(
-  function* (
-    home: string,
-    task: string,
-    source: "local" | "remote" | "executed" | "failed",
-    savedMs: number,
-  ) {
-    const remote = yield* remoteCache(home);
-    if (!remote) return;
-    const environment = yield* HostProcess.Environment;
-    const recordedAt = yield* Clock.currentTimeMillis;
-    // Same machine label as Vite task reports (infra/task-cache/src/telemetry.ts).
-    const fs = yield* FileSystem.FileSystem;
-    const machine = yield* fs.readFileString(`${home}/.agents/MACHINE`).pipe(
-      Effect.map((value) => value.trim()),
-      Effect.orElseSucceed(() => ""),
-    );
-    const host =
-      environment.T3_TASK_CACHE_HOST ||
-      machine ||
-      (environment.GITHUB_ACTIONS === "true"
-        ? `${environment.RUNNER_ENVIRONMENT || "github"}/${environment.RUNNER_OS}/${environment.RUNNER_ARCH}`
-        : yield* HostProcess.Hostname);
-    const client = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk);
-    yield* client.execute(
-      authorized(remote, HttpClientRequest.post(remote.telemetry)).pipe(
-        HttpClientRequest.bodyJsonUnsafe({
-          id: yield* digest(`${host}:${task}:${recordedAt}:${yield* Random.nextInt}`),
-          recordedAt,
-          host,
-          platform: yield* HostProcess.Platform,
-          arch: yield* HostProcess.Architecture,
-          ci: environment.CI === "true" || environment.CI === "1",
-          runId: environment.GITHUB_RUN_ID ?? "",
-          tasks: [{ package: "@t3tools/mobile", task, source, savedMs: Math.round(savedMs) }],
-        }),
-      ),
-    );
-  },
-  (effect) => effect.pipe(Effect.timeout("5 seconds"), Effect.ignore),
-);
+const reportTelemetry = (
+  _home: string,
+  _task: string,
+  _source: "local" | "remote" | "executed" | "failed",
+  _savedMs: number,
+) => Effect.void;
 
 /**
  * Install into an agent-device session the caller already opened (a device pool, a cloud

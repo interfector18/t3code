@@ -4,6 +4,19 @@ For upstream releases, use [the release runbook](./03_release.md). This runbook 
 
 ## Fork release parties: fleet diagnostics gate
 
+### Outbound telemetry gate
+
+This fork ships without outbound analytics or diagnostic exporters. Before each release, audit
+incoming analytics, crash-reporting, relay tracing, SDK telemetry, and build/cache reporting
+changes. Keep the non-sending compatibility boundaries and boolean `telemetry={false}` on
+every Clerk provider and `telemetryEnabled: false` at both native SDK initializers; the
+JavaScript prop does not control native SDK reporting. Environment variables and saved settings
+must not re-enable sending.
+Run the focused no-egress regressions alongside `check:changed`. Android builds must regenerate
+native autolinking after SDK removal; reusing an old native client is not proof of removal.
+Preserve local collectors, resource history, and local Traces. Report older installed/running
+builds separately: staging or publishing this change does not change their telemetry behavior.
+
 The personal fork's rollout includes **Scar**, **zenbook-a16**, **mini-elite**, and
 **mjolnir** on every release party, including small rebases. CI publication or a
 downloaded AppImage proves availability, not activation or working diagnostics.
