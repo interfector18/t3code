@@ -3,11 +3,14 @@
 // messages render. Release jobs run it so a build whose backend or bundle cannot start fails
 // before it is published.
 import * as NodeFS from "node:fs";
+import * as NodeChildProcess from "node:child_process";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeTimersPromises from "node:timers/promises";
 import * as NodeUtil from "node:util";
-import { _electron, type ElectronApplication } from "playwright-core";
+import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as Effect from "effect/Effect";
+import { chromium, type Browser } from "playwright-core";
 
 // A snapshot from an older build on purpose: the packaged server must migrate it forward, as it
 // does for every upgrading user. It holds one project and two threads, nothing else.
@@ -15,6 +18,39 @@ const FIXTURE_DB = NodePath.join(import.meta.dirname, "fixtures/desktop-launch/s
 const THREAD_TITLE = "Release launch check";
 const THREAD_MESSAGE = "The release opens and shows this thread.";
 const STEP_TIMEOUT_MS = 60_000;
+const platform = Effect.runSync(Effect.service(HostProcess.Platform));
+
+function waitForCdpEndpoint(child: NodeChildProcess.ChildProcess): Promise<string> {
+  const stderr = child.stderr;
+  if (!stderr) return Promise.reject(new Error("Desktop stderr was not piped."));
+  return new Promise((resolve, reject) => {
+    let pending = "";
+    const timeout = new AbortController();
+    const finish = (error: Error | undefined, endpoint?: string) => {
+      timeout.abort();
+      stderr.off("data", onData);
+      child.off("error", onError);
+      child.off("exit", onExit);
+      if (error) reject(error);
+      else resolve(endpoint!);
+    };
+    const onData = (chunk: Buffer) => {
+      pending += chunk.toString();
+      const endpoint = /DevTools listening on (ws:\/\/[^\s]+)/.exec(pending)?.[1];
+      if (endpoint) finish(undefined, endpoint);
+      else pending = pending.slice(-1024);
+    };
+    const onError = (error: Error) => finish(error);
+    const onExit = () => finish(new Error("Desktop exited before its renderer debugger started."));
+    void NodeTimersPromises.setTimeout(STEP_TIMEOUT_MS, undefined, { signal: timeout.signal }).then(
+      () => finish(new Error("Desktop renderer debugger did not start within 60 seconds.")),
+      () => {},
+    );
+    stderr.on("data", onData);
+    child.once("error", onError);
+    child.once("exit", onExit);
+  });
+}
 
 const { values } = NodeUtil.parseArgs({
   options: {
@@ -37,28 +73,50 @@ NodeFS.mkdirSync(NodePath.join(t3Home, "userdata"), { recursive: true });
 NodeFS.copyFileSync(FIXTURE_DB, NodePath.join(t3Home, "userdata/statev2.sqlite"));
 
 let step = "launching the app";
-let app: ElectronApplication | undefined;
+let child: NodeChildProcess.ChildProcess | undefined;
+let browser: Browser | undefined;
+let output = "";
+NodeFS.mkdirSync(artifactsDir, { recursive: true });
 try {
-  app = await _electron.launch({
-    executablePath: executable,
-    // Linux CI runners do not allow the Chromium sandbox's user namespaces.
-    args: [...(values.app ? [NodePath.resolve(values.app)] : []), "--no-sandbox"],
-    // HOME stays real: on macOS a fake HOME has no login keychain, and safeStorage blocks the
-    // main process on a keychain dialog. macOS keeps its Electron profile in the runner's HOME.
-    env: {
-      ...process.env,
-      XDG_CONFIG_HOME: NodePath.join(home, ".config"),
-      XDG_DATA_HOME: NodePath.join(home, ".local/share"),
-      T3CODE_HOME: t3Home,
-      T3CODE_TELEMETRY_ENABLED: "false",
-      T3CODE_DISABLE_AUTO_UPDATE: "true",
+  // Packaged builds disable the Node inspector; renderer CDP does not need that fuse.
+  const spawned = NodeChildProcess.spawn(
+    executable,
+    [
+      ...(values.app ? [NodePath.resolve(values.app)] : []),
+      "--no-sandbox",
+      "--remote-debugging-port=0",
+      "--remote-debugging-address=127.0.0.1",
+    ],
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+      // HOME stays real: on macOS a fake HOME has no login keychain, and safeStorage blocks the
+      // main process on a keychain dialog. macOS keeps its Electron profile in the runner's HOME.
+      env: {
+        ...process.env,
+        ...(platform === "linux" ? { HOME: home } : {}),
+        XDG_CONFIG_HOME: NodePath.join(home, ".config"),
+        XDG_DATA_HOME: NodePath.join(home, ".local/share"),
+        T3CODE_HOME: t3Home,
+        T3CODE_TELEMETRY_ENABLED: "false",
+        T3CODE_DISABLE_AUTO_UPDATE: "true",
+      },
     },
-    timeout: STEP_TIMEOUT_MS,
-  });
+  );
+  child = spawned;
+  const capture = (chunk: Buffer) => {
+    output = (output + chunk.toString()).slice(-128 * 1024);
+  };
+  spawned.stdout.on("data", capture);
+  spawned.stderr.on("data", capture);
+  const endpoint = await waitForCdpEndpoint(spawned);
+  browser = await chromium.connectOverCDP(endpoint, { timeout: STEP_TIMEOUT_MS });
   // A backend that never starts leaves no window, or only the "could not start" window, so the
   // thread wait below fails either way and its screenshot shows the startup error.
   step = "waiting for the first window";
-  const page = await app.firstWindow({ timeout: STEP_TIMEOUT_MS });
+  const context = browser.contexts()[0];
+  if (!context) throw new Error("Desktop renderer context was not created.");
+  const page =
+    context.pages()[0] ?? (await context.waitForEvent("page", { timeout: STEP_TIMEOUT_MS }));
   try {
     step = `finding "${THREAD_TITLE}" in the sidebar`;
     const thread = page.locator("li[data-thread-item]", { hasText: THREAD_TITLE });
@@ -89,13 +147,33 @@ try {
   }
   process.exitCode = 1;
 } finally {
-  if (app) {
-    // A hung app never finishes closing; kill it so the job does not wait for its timeout.
-    // Playwright drops the process handle once the app closes, so read it first.
-    const child = app.process();
-    const closed = app.close().catch(() => {});
-    await Promise.race([closed, NodeTimersPromises.setTimeout(10_000, undefined, { ref: false })]);
-    child.kill("SIGKILL");
+  if (child?.pid && child.exitCode === null && child.signalCode === null) {
+    const launched = child;
+    const exited = new Promise<void>((resolve) => launched.once("exit", () => resolve()));
+    const closed = (async () => {
+      if (browser) {
+        const session = await browser.newBrowserCDPSession().catch(() => undefined);
+        await session?.send("Browser.close").catch(() => {});
+      }
+      launched.kill("SIGTERM");
+      await exited;
+    })().catch(() => {});
+    const timeout = new AbortController();
+    try {
+      await Promise.race([
+        exited,
+        closed,
+        NodeTimersPromises.setTimeout(10_000, undefined, { signal: timeout.signal }),
+      ]);
+    } finally {
+      timeout.abort();
+    }
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill("SIGKILL");
+      await exited;
+    }
   }
+  await browser?.close().catch(() => {});
+  NodeFS.writeFileSync(NodePath.join(artifactsDir, "process.log"), output);
   NodeFS.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
 }
